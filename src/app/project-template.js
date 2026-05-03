@@ -6,7 +6,7 @@ export function renderProjectCards(projects) {
 
 export function projectTemplate(project) {
   return `
-    <article class="project-card">
+    <article class="project-card" tabindex="0">
       <div class="project-main">
         <div class="project-header">
           <h2 class="project-name">${escapeHtml(project.name)}</h2>

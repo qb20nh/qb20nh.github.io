@@ -1,4 +1,9 @@
-export function runProjectViewTransition(oldElement, newElement, mutate) {
+export function runProjectViewTransition(
+  oldElement,
+  newElement,
+  mutate,
+  options = {},
+) {
   if (
     !document.startViewTransition ||
     window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
@@ -6,6 +11,7 @@ export function runProjectViewTransition(oldElement, newElement, mutate) {
     !newElement
   ) {
     mutate();
+    options.afterFinished?.();
     return;
   }
 
@@ -19,5 +25,6 @@ export function runProjectViewTransition(oldElement, newElement, mutate) {
   transition.finished.finally(() => {
     oldElement.classList.remove("project-view-transition");
     newElement.classList.remove("project-view-transition");
+    options.afterFinished?.();
   });
 }

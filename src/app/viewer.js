@@ -9,18 +9,52 @@ export function createProjectViewer({
   getProjectById,
   findProjectCard,
   placeBackControl,
+  beforeOpenProject = () => {},
 }) {
   let activeProject = null;
   let pendingBackConfirmation = null;
+  let openRequestId = 0;
+  let viewportSizeUpdate = 0;
+
+  syncViewerSize();
+  window.addEventListener("resize", queueViewerSizeSync);
+  window.visualViewport?.addEventListener("resize", queueViewerSizeSync);
 
   function openProject(project, options = {}) {
     const sourceCard = options.sourceCard || findProjectCard(project);
-    runProjectViewTransition(sourceCard, viewer, () => {
-      applyOpenProject(project, options);
-    });
+    const previewTransition = beforeOpenProject(project, sourceCard);
+    const requestId = ++openRequestId;
+
+    syncViewerSize();
+    prepareFrameForOpen(frame, project.path, Boolean(previewTransition)).then(
+      (frameReady) => {
+        if (requestId !== openRequestId) {
+          previewTransition?.release();
+          return;
+        }
+
+        runProjectViewTransition(
+          sourceCard,
+          viewer,
+          () => {
+            applyOpenProject(project, { ...options, frameReady });
+          },
+          {
+            afterFinished: () => {
+              if (activeProject === project) {
+                lockPageScroll();
+              }
+
+              previewTransition?.release();
+            },
+          },
+        );
+      },
+    );
   }
 
   function applyOpenProject(project, options = {}) {
+    syncViewerSize();
     activeProject = project;
     frame.title = `${project.name} preview`;
     viewer.classList.add("is-open");
@@ -33,15 +67,26 @@ export function createProjectViewer({
       history.pushState({ projectId: project.id }, "", `#${project.id}`);
     }
 
-    replaceFrameLocation(frame, project.path);
+    if (!options.frameReady) replaceFrameLocation(frame, project.path);
   }
 
   function closeProject(options = {}) {
+    openRequestId += 1;
     const project = activeProject;
     const targetCard = project ? findProjectCard(project) : null;
-    runProjectViewTransition(viewer, targetCard, () => {
-      applyCloseProject(options);
-    });
+    runProjectViewTransition(
+      viewer,
+      targetCard,
+      () => {
+        restorePageGutter();
+        applyCloseProject(options);
+      },
+      {
+        afterFinished: () => {
+          if (!activeProject) unlockPageScroll();
+        },
+      },
+    );
   }
 
   function applyCloseProject(options = {}) {
@@ -56,6 +101,36 @@ export function createProjectViewer({
     if (options.updateHistory && location.hash) {
       history.replaceState(null, "", location.pathname + location.search);
     }
+  }
+
+  function lockPageScroll() {
+    document.documentElement.classList.add("viewer-scroll-locked");
+    document.body.classList.add("viewer-scroll-locked");
+    syncViewerSize();
+    placeBackControl();
+  }
+
+  function unlockPageScroll() {
+    document.body.classList.remove("viewer-scroll-locked");
+    restorePageGutter();
+  }
+
+  function restorePageGutter() {
+    document.documentElement.classList.remove("viewer-scroll-locked");
+  }
+
+  function queueViewerSizeSync() {
+    if (viewportSizeUpdate) return;
+
+    viewportSizeUpdate = window.requestAnimationFrame(() => {
+      viewportSizeUpdate = 0;
+      syncViewerSize();
+    });
+  }
+
+  function syncViewerSize() {
+    viewer.style.setProperty("--viewer-width", `${window.innerWidth}px`);
+    viewer.style.setProperty("--viewer-height", `${window.innerHeight}px`);
   }
 
   function requestProjectClose(options = {}) {
@@ -115,5 +190,46 @@ function replaceFrameLocation(frame, url) {
     frame.contentWindow.location.replace(url);
   } catch {
     frame.src = url;
+  }
+}
+
+function prepareFrameForOpen(frame, url, shouldWait) {
+  if (!shouldWait) return Promise.resolve(false);
+
+  replaceFrameLocation(frame, url);
+
+  if (isFrameReadyAtUrl(frame, url)) return Promise.resolve(true);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let fallbackTimer = 0;
+
+    const settle = () => {
+      if (settled) return;
+
+      settled = true;
+      window.clearTimeout(fallbackTimer);
+      frame.removeEventListener("load", settle);
+      resolve(isFrameReadyAtUrl(frame, url));
+    };
+
+    frame.addEventListener("load", settle, { once: true });
+    fallbackTimer = window.setTimeout(settle, 1400);
+  });
+}
+
+function isFrameReadyAtUrl(frame, url) {
+  try {
+    const current = frame.contentWindow.location;
+    const expected = new URL(url, location.href);
+
+    return (
+      current.origin === expected.origin &&
+      current.pathname === expected.pathname &&
+      current.search === expected.search &&
+      frame.contentDocument.readyState !== "loading"
+    );
+  } catch {
+    return false;
   }
 }

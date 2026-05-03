@@ -1,5 +1,6 @@
 import "./styles.css";
 import { setupBackControl } from "./app/back-control.js";
+import { setupCardPreview } from "./app/card-preview.js";
 import { getDomElements } from "./app/dom.js";
 import {
   createProjectMap,
@@ -20,6 +21,13 @@ const backControl = setupBackControl(elements.backControl, () => {
   requestProjectClose({ updateHistory: true });
 });
 
+const cardPreview = setupCardPreview(elements.directory, (card) => {
+  const trigger = card.querySelector("[data-open]");
+  return trigger
+    ? projectById.get(trigger.dataset.open) || readProjectFromTrigger(trigger)
+    : null;
+});
+
 const viewer = createProjectViewer({
   viewer: elements.viewer,
   frame: elements.frame,
@@ -28,6 +36,8 @@ const viewer = createProjectViewer({
   getProjectById: (id) => projectById.get(id),
   findProjectCard: (project) => findProjectCard(elements.directory, project),
   placeBackControl: backControl.placeBackControl,
+  beforeOpenProject: (project, sourceCard) =>
+    cardPreview.prepareOpenTransition(sourceCard, project),
 });
 
 requestProjectClose = viewer.requestProjectClose;
@@ -62,6 +72,8 @@ async function init() {
 }
 
 function renderDirectory() {
+  cardPreview.stopAll();
+
   if (!projects) {
     elements.directory.className = "directory grid";
     return;

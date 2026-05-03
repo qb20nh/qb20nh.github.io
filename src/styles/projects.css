@@ -10,6 +10,9 @@
 }
 
 .project-card {
+  position: relative;
+  isolation: isolate;
+  contain: layout paint;
   display: grid;
   grid-template-rows: 1fr auto;
   gap: 14px;
@@ -19,12 +22,59 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--panel);
+  overflow: hidden;
   transition: border-color 160ms ease;
+}
+
+.project-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--panel);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
 }
 
 .project-card:hover,
 .project-card:focus-within {
   border-color: var(--line-strong);
+}
+
+.project-preview-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  border: 0;
+  background: var(--bg);
+  color-scheme: inherit;
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: top left;
+  transition: opacity 160ms ease;
+}
+
+.project-card.is-preview-loaded::before {
+  opacity: 0.68;
+}
+
+.project-card.is-preview-loaded .project-preview-frame {
+  opacity: 1;
+}
+
+.project-preview-dock {
+  position: fixed;
+  width: 0;
+  height: 0;
+  overflow: clip;
+  visibility: hidden;
+  pointer-events: none;
+  contain: strict;
 }
 
 .project-view-transition {
@@ -48,6 +98,8 @@
 }
 
 .project-main {
+  position: relative;
+  z-index: 2;
   display: grid;
   gap: 8px;
   align-content: start;
@@ -103,6 +155,8 @@
 }
 
 .project-actions {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   flex-wrap: wrap;

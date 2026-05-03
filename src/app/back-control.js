@@ -1,19 +1,21 @@
 export function setupBackControl(backControl, onBack) {
+  const edgeInset = -8;
+  const dragInset = 8;
   let dragState = null;
   let suppressClick = false;
 
   function placeBackControl() {
     const saved = getSavedBackPosition();
-    const edgeInset = -8;
     const width = backControl.offsetWidth || 44;
     const height = backControl.offsetHeight || 44;
+    const rightEdge = getSafeRightEdge();
     const side = saved && saved.side === "right" ? "right" : "left";
     const top = clamp(
       saved && Number.isFinite(saved.top) ? saved.top : 18,
       8,
       window.innerHeight - height - 8,
     );
-    const left = side === "right" ? window.innerWidth - width - edgeInset : edgeInset;
+    const left = side === "right" ? rightEdge - width - edgeInset : edgeInset;
 
     backControl.dataset.side = side;
     backControl.style.left = `${left}px`;
@@ -21,10 +23,10 @@ export function setupBackControl(backControl, onBack) {
   }
 
   function snapBackControl() {
-    const edgeInset = -8;
     const rect = backControl.getBoundingClientRect();
-    const side = rect.left + rect.width / 2 < window.innerWidth / 2 ? "left" : "right";
-    const left = side === "left" ? edgeInset : window.innerWidth - rect.width - edgeInset;
+    const rightEdge = getSafeRightEdge();
+    const side = rect.left + rect.width / 2 < rightEdge / 2 ? "left" : "right";
+    const left = side === "left" ? edgeInset : rightEdge - rect.width - edgeInset;
     const top = clamp(rect.top, 8, window.innerHeight - rect.height - 8);
 
     backControl.dataset.side = side;
@@ -45,6 +47,7 @@ export function setupBackControl(backControl, onBack) {
     };
 
     backControl.classList.add("is-dragging");
+    backControl.classList.add("is-tooltip-visible");
     backControl.setPointerCapture(event.pointerId);
   });
 
@@ -53,11 +56,18 @@ export function setupBackControl(backControl, onBack) {
 
     const width = backControl.offsetWidth;
     const height = backControl.offsetHeight;
-    const nextLeft = clamp(event.clientX - dragState.offsetX, 8, window.innerWidth - width - 8);
+    const rightEdge = getSafeRightEdge();
+    const nextLeft = clamp(
+      event.clientX - dragState.offsetX,
+      dragInset,
+      rightEdge - width - dragInset,
+    );
     const nextTop = clamp(event.clientY - dragState.offsetY, 8, window.innerHeight - height - 8);
     const distance = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY);
 
     if (distance > 4) dragState.moved = true;
+    backControl.dataset.side =
+      nextLeft + width / 2 < rightEdge / 2 ? "left" : "right";
     backControl.style.left = `${nextLeft}px`;
     backControl.style.top = `${nextTop}px`;
   });
@@ -67,6 +77,7 @@ export function setupBackControl(backControl, onBack) {
 
     suppressClick = dragState.moved;
     backControl.classList.remove("is-dragging");
+    backControl.classList.remove("is-tooltip-visible");
     backControl.releasePointerCapture(event.pointerId);
 
     if (dragState.moved) snapBackControl();
@@ -76,6 +87,7 @@ export function setupBackControl(backControl, onBack) {
   backControl.addEventListener("pointercancel", () => {
     if (!dragState) return;
     backControl.classList.remove("is-dragging");
+    backControl.classList.remove("is-tooltip-visible");
     snapBackControl();
     dragState = null;
     suppressClick = true;
@@ -92,10 +104,18 @@ export function setupBackControl(backControl, onBack) {
   });
 
   return { placeBackControl };
+
+  function getSafeRightEdge() {
+    return window.innerWidth - getRightScrollbarInset();
+  }
 }
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function getRightScrollbarInset() {
+  return Math.max(0, window.innerWidth - document.documentElement.clientWidth);
 }
 
 function getSavedBackPosition() {

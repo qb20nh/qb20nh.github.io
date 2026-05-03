@@ -8,6 +8,10 @@ html {
   scrollbar-gutter: stable;
 }
 
+html.viewer-scroll-locked {
+  scrollbar-gutter: auto;
+}
+
 body {
   min-height: 100%;
   margin: 0;
@@ -15,7 +19,7 @@ body {
   color: var(--text);
 }
 
-body.viewer-open {
+body.viewer-scroll-locked {
   overflow: hidden;
 }
 
