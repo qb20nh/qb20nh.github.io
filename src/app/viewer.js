@@ -33,8 +33,9 @@ export function createProjectViewer({
           return;
         }
 
-        backControl.classList.add("is-visible");
+        document.body.classList.add("viewer-open");
         placeBackControl();
+        backControl.classList.add("is-visible");
 
         runProjectViewTransition(
           previewTransition?.sourceElement || sourceCard,
@@ -64,8 +65,8 @@ export function createProjectViewer({
     viewer.classList.add("is-open");
     viewer.setAttribute("aria-hidden", "false");
     document.body.classList.add("viewer-open");
-    backControl.classList.add("is-visible");
     placeBackControl();
+    backControl.classList.add("is-visible");
 
     if (options.updateHistory && location.hash !== `#${project.id}`) {
       history.pushState({ projectId: project.id }, "", `#${project.id}`);

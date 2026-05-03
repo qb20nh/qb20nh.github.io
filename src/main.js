@@ -1,4 +1,11 @@
-import "./styles.css";
+import "./styles/theme.css";
+import "./styles/base.css";
+import "./styles/layout.css";
+import "./styles/controls.css";
+import "./styles/projects.css";
+import "./styles/viewer.css";
+import "./styles/dialog.css";
+import "./styles/responsive.css";
 import { setupBackControl } from "./app/back-control.js";
 import { setupCardPreview } from "./app/card-preview.js";
 import { getDomElements } from "./app/dom.js";

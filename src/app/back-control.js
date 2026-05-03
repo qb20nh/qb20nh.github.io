@@ -17,7 +17,7 @@ export function setupBackControl(backControl, onBack) {
     );
     const left = side === "right" ? rightEdge - width - edgeInset : edgeInset;
 
-    backControl.dataset.side = side;
+    setBackControlSide(side);
     backControl.style.left = `${left}px`;
     backControl.style.top = `${top}px`;
   }
@@ -29,7 +29,7 @@ export function setupBackControl(backControl, onBack) {
     const left = side === "left" ? edgeInset : rightEdge - rect.width - edgeInset;
     const top = clamp(rect.top, 8, window.innerHeight - rect.height - 8);
 
-    backControl.dataset.side = side;
+    setBackControlSide(side);
     backControl.style.left = `${left}px`;
     backControl.style.top = `${top}px`;
     saveBackPosition(side, top);
@@ -66,8 +66,9 @@ export function setupBackControl(backControl, onBack) {
     const distance = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY);
 
     if (distance > 4) dragState.moved = true;
-    backControl.dataset.side =
-      nextLeft + width / 2 < rightEdge / 2 ? "left" : "right";
+    setBackControlSide(
+      nextLeft + width / 2 < rightEdge / 2 ? "left" : "right",
+    );
     backControl.style.left = `${nextLeft}px`;
     backControl.style.top = `${nextTop}px`;
   });
@@ -106,7 +107,26 @@ export function setupBackControl(backControl, onBack) {
   return { placeBackControl };
 
   function getSafeRightEdge() {
+    if (
+      document.body.classList.contains("viewer-open") ||
+      document.body.classList.contains("viewer-scroll-locked")
+    ) {
+      return window.innerWidth;
+    }
+
     return window.innerWidth - getRightScrollbarInset();
+  }
+
+  function setBackControlSide(side) {
+    backControl.dataset.side = side;
+    document.documentElement.classList.toggle(
+      "back-control-side-right",
+      side === "right",
+    );
+    document.documentElement.classList.toggle(
+      "back-control-side-left",
+      side !== "right",
+    );
   }
 }
 

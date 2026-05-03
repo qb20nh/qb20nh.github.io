@@ -48,11 +48,17 @@
   touch-action: none;
   user-select: none;
   contain: layout;
+  transform-origin: center;
 }
 
 .back-control.is-visible {
   display: inline-flex;
+  animation: back-control-pop-left 220ms ease-out;
   view-transition-name: back-control;
+}
+
+.back-control[data-side="right"].is-visible {
+  animation-name: back-control-pop-right;
 }
 
 .back-control.is-dragging {
@@ -63,7 +69,18 @@
 .back-control:not(.is-dragging) {
   transition:
     left 180ms ease,
-    top 180ms ease;
+    top 180ms ease,
+    transform 140ms ease;
+}
+
+.back-control[data-side="left"]:not(.is-dragging):hover,
+.back-control[data-side="left"]:not(.is-dragging):focus-visible {
+  transform: translateX(8px);
+}
+
+.back-control[data-side="right"]:not(.is-dragging):hover,
+.back-control[data-side="right"]:not(.is-dragging):focus-visible {
+  transform: translateX(-8px);
 }
 
 .back-icon {
@@ -98,4 +115,44 @@
 .back-control:focus-visible .back-tooltip,
 .back-control.is-tooltip-visible .back-tooltip {
   opacity: 1;
+}
+
+@keyframes back-control-pop-left {
+  0% {
+    opacity: 0;
+    transform: translateX(-16px) scale(0.9);
+  }
+
+  72% {
+    opacity: 1;
+    transform: translateX(8px) scale(1);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes back-control-pop-right {
+  0% {
+    opacity: 0;
+    transform: translateX(16px) scale(0.9);
+  }
+
+  72% {
+    opacity: 1;
+    transform: translateX(-8px) scale(1);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .back-control.is-visible {
+    animation-duration: 1ms;
+  }
 }

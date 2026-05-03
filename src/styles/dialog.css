@@ -5,10 +5,41 @@
   border-radius: 4px;
   background: var(--panel);
   color: var(--text);
+  opacity: 0;
+  transform: scale(0.97);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.back-dialog[open] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.back-dialog.is-closing {
+  opacity: 0;
+  transform: scale(0.98);
 }
 
 .back-dialog::backdrop {
   background: rgb(0 0 0 / 45%);
+  transition: background 140ms ease;
+}
+
+.back-dialog.is-closing::backdrop {
+  background: rgb(0 0 0 / 0%);
+}
+
+@starting-style {
+  .back-dialog[open] {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+
+  .back-dialog[open]::backdrop {
+    background: rgb(0 0 0 / 0%);
+  }
 }
 
 .back-dialog-content {
@@ -53,4 +84,11 @@
   border-color: var(--button-bg);
   background: var(--button-bg);
   color: var(--button-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .back-dialog,
+  .back-dialog::backdrop {
+    transition-duration: 1ms;
+  }
 }

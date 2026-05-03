@@ -1,4 +1,6 @@
 const PREVIEW_IDLE_UNLOAD_MS = 800;
+const PREVIEW_FADE_OUT_MS = 240;
+const PREVIEW_MIN_LAYOUT_WIDTH = 760;
 const PREVIEW_MIN_START_DELAY_MS = 120;
 const PREVIEW_MAX_START_DELAY_MS = 1200;
 const PREVIEW_DELAY_STEP_MS = 90;
@@ -17,6 +19,8 @@ export function setupCardPreview(directory, getProjectForCard) {
   let previewDock = null;
   let previewToken = 0;
   let idleUnloadTimer = 0;
+  let fadeOutTimer = 0;
+  let fadingPreview = null;
   let warmupRequest = null;
   let suppressFocusPreview = false;
   const pressureMonitor = createPreviewPressureMonitor();
@@ -43,6 +47,8 @@ export function setupCardPreview(directory, getProjectForCard) {
   });
 
   directory.addEventListener("pointerout", (event) => {
+    if (event.pointerType === "touch" || event.pointerType === "pen") return;
+
     const card = getEventCard(directory, event.target);
     if (!card || containsRelatedTarget(card, event.relatedTarget)) return;
 
@@ -91,7 +97,8 @@ export function setupCardPreview(directory, getProjectForCard) {
     cancelIdleUnload();
     stopWarmup();
     const layout = getPreviewLayout(card);
-    stopActivePreview({ unload: false });
+    stopActivePreview({ unload: false, fade: false });
+    cancelPreviewFadeOut();
 
     const frame = getPreviewFrame();
     const path = new URL(project.path, location.href).href;
@@ -113,7 +120,7 @@ export function setupCardPreview(directory, getProjectForCard) {
     if (activePreview?.card !== card) return;
     if (activePreview.isOpening) return;
 
-    stopActivePreview({ unload: false });
+    stopActivePreview({ unload: false, fade: true });
     scheduleIdleUnload();
   }
 
@@ -122,7 +129,8 @@ export function setupCardPreview(directory, getProjectForCard) {
     cancelPendingPreview();
     stopWarmup();
     cancelIdleUnload();
-    stopActivePreview({ unload: true });
+    cancelPreviewFadeOut();
+    stopActivePreview({ unload: true, fade: false });
     pressureMonitor.stop();
   }
 
@@ -141,7 +149,7 @@ export function setupCardPreview(directory, getProjectForCard) {
       !card.classList.contains("is-preview-loaded") ||
       !isFrameAtPath(activePreview.frame, path)
     ) {
-      stopActivePreview({ unload: true });
+      stopActivePreview({ unload: true, fade: false });
       return null;
     }
 
@@ -161,10 +169,19 @@ export function setupCardPreview(directory, getProjectForCard) {
     };
   }
 
-  function stopActivePreview({ unload }) {
-    if (activePreview) {
-      activePreview.card.classList.remove("is-previewing", "is-preview-loaded");
+  function stopActivePreview({ unload, fade }) {
+    const preview = activePreview;
+
+    if (preview) {
+      preview.card.classList.remove("is-preview-loaded");
       activePreview = null;
+
+      if (fade && preview.frame.parentElement === preview.card) {
+        schedulePreviewFadeOut(preview, unload);
+        return;
+      }
+
+      preview.card.classList.remove("is-previewing");
     }
 
     if (!previewFrame) return;
@@ -253,6 +270,42 @@ export function setupCardPreview(directory, getProjectForCard) {
   function parkPreviewFrame() {
     previewFrame.hidden = true;
     getPreviewDock().append(previewFrame);
+  }
+
+  function schedulePreviewFadeOut(preview, unload) {
+    cancelPreviewFadeOut();
+
+    fadingPreview = { preview, unload };
+    fadeOutTimer = window.setTimeout(finishPreviewFadeOut, PREVIEW_FADE_OUT_MS);
+  }
+
+  function finishPreviewFadeOut() {
+    if (!fadingPreview) return;
+
+    const { preview, unload } = fadingPreview;
+    cancelPreviewFadeOut();
+
+    if (activePreview?.frame === preview.frame) return;
+
+    preview.card.classList.remove("is-previewing");
+
+    if (previewFrame !== preview.frame) return;
+
+    parkPreviewFrame();
+
+    if (unload) {
+      navigateFrame(previewFrame, "about:blank");
+    }
+  }
+
+  function cancelPreviewFadeOut() {
+    window.clearTimeout(fadeOutTimer);
+    fadeOutTimer = 0;
+
+    if (!fadingPreview) return;
+
+    fadingPreview.preview.card.classList.remove("is-previewing");
+    fadingPreview = null;
   }
 
   function getPreviewDock() {
@@ -487,9 +540,13 @@ function updateFrameLayout({ card, frame }) {
 
 function getPreviewLayout(card) {
   const cardRect = card.getBoundingClientRect();
-  const layoutWidth = Math.max(window.innerWidth, cardRect.width);
+  const layoutWidth = Math.max(
+    PREVIEW_MIN_LAYOUT_WIDTH,
+    window.innerWidth,
+    cardRect.width,
+  );
   const scale = cardRect.width / layoutWidth;
-  const layoutHeight = Math.max(window.innerHeight, cardRect.height / scale);
+  const layoutHeight = cardRect.height / scale;
 
   return { layoutWidth, layoutHeight, scale };
 }
