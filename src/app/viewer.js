@@ -26,20 +26,24 @@ export function createProjectViewer({
     const requestId = ++openRequestId;
 
     syncViewerSize();
-    prepareFrameForOpen(frame, project.path, Boolean(previewTransition)).then(
+    prepareFrameForOpen(frame, project.path, true).then(
       (frameReady) => {
         if (requestId !== openRequestId) {
           previewTransition?.release();
           return;
         }
 
+        backControl.classList.add("is-visible");
+        placeBackControl();
+
         runProjectViewTransition(
-          sourceCard,
+          previewTransition?.sourceElement || sourceCard,
           viewer,
           () => {
             applyOpenProject(project, { ...options, frameReady });
           },
           {
+            direction: "open",
             afterFinished: () => {
               if (activeProject === project) {
                 lockPageScroll();
@@ -82,6 +86,7 @@ export function createProjectViewer({
         applyCloseProject(options);
       },
       {
+        direction: "close",
         afterFinished: () => {
           if (!activeProject) unlockPageScroll();
         },

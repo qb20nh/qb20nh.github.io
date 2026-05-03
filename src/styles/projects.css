@@ -56,7 +56,7 @@
   opacity: 0;
   pointer-events: none;
   transform-origin: top left;
-  transition: opacity 160ms ease;
+  transition: opacity 220ms ease;
 }
 
 .project-card.is-preview-loaded::before {
@@ -83,6 +83,13 @@
 }
 
 ::view-transition-group(project-view) {
+  z-index: 1;
+  animation-duration: 220ms;
+  animation-timing-function: ease;
+}
+
+::view-transition-group(back-control) {
+  z-index: 2;
   animation-duration: 220ms;
   animation-timing-function: ease;
 }
@@ -91,8 +98,68 @@
   overflow: clip;
 }
 
+::view-transition-image-pair(back-control) {
+  overflow: visible;
+}
+
+html.project-view-opening::view-transition-old(project-view) {
+  opacity: 0;
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html.project-view-opening::view-transition-group(project-view) {
+  top: 0;
+  left: 0;
+  width: var(--project-vt-to-width, 100vw);
+  height: var(--project-vt-to-height, 100dvh);
+  transform-origin: top left;
+  animation-name: project-view-open-straight;
+}
+
+html.project-view-opening::view-transition-new(project-view) {
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@keyframes project-view-open-straight {
+  from {
+    transform: translate3d(
+        var(--project-vt-from-left, 0),
+        var(--project-vt-from-top, 0),
+        0
+      )
+      scale(var(--project-vt-open-scale, 1));
+  }
+
+  to {
+    transform: translate3d(
+        var(--project-vt-to-left, 0),
+        var(--project-vt-to-top, 0),
+        0
+      )
+      scale(1);
+  }
+}
+
+html.project-view-opening::view-transition-old(back-control),
+html.project-view-opening::view-transition-new(back-control) {
+  opacity: 1;
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(back-control),
+::view-transition-new(back-control) {
+  mix-blend-mode: normal;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(project-view) {
+  ::view-transition-group(project-view),
+  ::view-transition-group(back-control) {
     animation-duration: 1ms;
   }
 }

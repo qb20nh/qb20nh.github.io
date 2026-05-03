@@ -103,7 +103,7 @@ export function setupCardPreview(directory, getProjectForCard) {
     card.append(frame);
 
     if (isFrameAtPath(frame, path)) {
-      card.classList.add("is-preview-loaded");
+      queuePreviewLoaded();
     } else {
       navigateFrame(frame, path);
     }
@@ -149,6 +149,7 @@ export function setupCardPreview(directory, getProjectForCard) {
     preview.isOpening = true;
 
     return {
+      sourceElement: preview.frame,
       release() {
         if (activePreview === preview) {
           activePreview = null;
@@ -194,11 +195,28 @@ export function setupCardPreview(directory, getProjectForCard) {
         activePreview.token === previewToken &&
         isFrameAtPath(previewFrame, activePreview.path)
       ) {
-        activePreview.card.classList.add("is-preview-loaded");
+        queuePreviewLoaded();
       }
     });
 
     return previewFrame;
+  }
+
+  function queuePreviewLoaded() {
+    const preview = activePreview;
+    if (!preview) return;
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (
+          activePreview === preview &&
+          preview.token === previewToken &&
+          isFrameAtPath(preview.frame, preview.path)
+        ) {
+          preview.card.classList.add("is-preview-loaded");
+        }
+      });
+    });
   }
 
   function queuePreview(card) {

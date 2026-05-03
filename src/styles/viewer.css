@@ -47,10 +47,12 @@
   line-height: 1;
   touch-action: none;
   user-select: none;
+  contain: layout;
 }
 
 .back-control.is-visible {
   display: inline-flex;
+  view-transition-name: back-control;
 }
 
 .back-control.is-dragging {
