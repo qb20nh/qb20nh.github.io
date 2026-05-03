@@ -9,8 +9,8 @@ export async function loadProjects() {
   return response.json();
 }
 
-export function renderProjects(directory, projects, view) {
-  directory.className = `directory ${view}`;
+export function renderProjects(directory, projects) {
+  directory.className = "directory grid";
   directory.innerHTML = renderProjectCards(projects);
 }
 

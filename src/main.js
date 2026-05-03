@@ -9,13 +9,11 @@ import {
   renderProjects,
 } from "./app/projects.js";
 import { createProjectViewer } from "./app/viewer.js";
-import { setupViewToggle } from "./app/view-toggle.js";
 
 const elements = getDomElements();
 
 let projects = null;
 let projectById = new Map();
-let currentView = "grid";
 let requestProjectClose = () => {};
 
 const backControl = setupBackControl(elements.backControl, () => {
@@ -33,11 +31,6 @@ const viewer = createProjectViewer({
 });
 
 requestProjectClose = viewer.requestProjectClose;
-
-setupViewToggle(elements.toggleButtons, (view) => {
-  currentView = view;
-  renderDirectory();
-});
 
 elements.directory.addEventListener("click", (event) => {
   const trigger = event.target.closest("[data-open]");
@@ -70,11 +63,11 @@ async function init() {
 
 function renderDirectory() {
   if (!projects) {
-    elements.directory.className = `directory ${currentView}`;
+    elements.directory.className = "directory grid";
     return;
   }
 
-  renderProjects(elements.directory, projects, currentView);
+  renderProjects(elements.directory, projects);
 }
 
 init();

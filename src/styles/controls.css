@@ -1,28 +1,3 @@
-.view-toggle {
-  display: inline-grid;
-  grid-template-columns: 1fr 1fr;
-  min-width: 188px;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--panel);
-}
-
-.view-toggle button {
-  min-height: 38px;
-  border: 0;
-  border-radius: 3px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.view-toggle button[aria-pressed="true"] {
-  background: var(--button-bg);
-  color: var(--button-text);
-}
-
 .action {
   display: inline-flex;
   align-items: center;
@@ -42,7 +17,6 @@
 }
 
 .action:focus-visible,
-.view-toggle button:focus-visible,
 .back-control:focus-visible,
 .back-dialog button:focus-visible {
   outline: 2px solid var(--focus);
