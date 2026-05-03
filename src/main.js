@@ -4,6 +4,7 @@ const directory = document.querySelector("#directory");
 const viewer = document.querySelector("#viewer");
 const frame = document.querySelector("#project-frame");
 const backControl = document.querySelector("#back-control");
+const backDialog = document.querySelector("#back-dialog");
 const toggleButtons = Array.from(document.querySelectorAll("[data-view]"));
 
 let projects = [];
@@ -12,6 +13,7 @@ let currentView = "grid";
 let activeProject = null;
 let dragState = null;
 let suppressClick = false;
+let pendingBackConfirmation = null;
 
 function renderProjects() {
   directory.className = `directory ${currentView}`;
@@ -30,8 +32,10 @@ function projectTemplate(project) {
   return `
     <article class="project-card">
       <div class="project-main">
-        <h2 class="project-name">${escapeHtml(project.name)}</h2>
-        <span class="badge">${escapeHtml(project.badge)}</span>
+        <div class="project-header">
+          <h2 class="project-name">${escapeHtml(project.name)}</h2>
+          <span class="badge">${escapeHtml(project.badge)}</span>
+        </div>
         <p class="project-description">${escapeHtml(project.description)}</p>
       </div>
       <div class="project-actions">
@@ -94,9 +98,57 @@ function closeProject(options = {}) {
   }
 }
 
+function requestProjectClose(options = {}) {
+  if (!activeProject) {
+    closeProject(options);
+    return;
+  }
+
+  if (pendingBackConfirmation) return;
+
+  const project = activeProject;
+  pendingBackConfirmation = confirmProjectClose().then((confirmed) => {
+    pendingBackConfirmation = null;
+
+    if (confirmed) {
+      closeProject({ updateHistory: options.updateHistory });
+      return;
+    }
+
+    if (
+      options.restoreOnCancel &&
+      activeProject === project &&
+      location.hash !== `#${project.id}`
+    ) {
+      history.pushState({ projectId: project.id }, "", `#${project.id}`);
+    }
+  });
+}
+
+function confirmProjectClose() {
+  if (!backDialog || typeof backDialog.showModal !== "function") {
+    return Promise.resolve(window.confirm("Go back to directory?"));
+  }
+
+  return new Promise((resolve) => {
+    const handleClose = () => {
+      resolve(backDialog.returnValue === "confirm");
+    };
+
+    backDialog.returnValue = "";
+    backDialog.addEventListener("close", handleClose, { once: true });
+    backDialog.showModal();
+  });
+}
+
 function syncProjectFromLocation() {
   const id = location.hash.replace("#", "");
   if (!id) {
+    if (activeProject) {
+      requestProjectClose({ updateHistory: false, restoreOnCancel: true });
+      return;
+    }
+
     closeProject({ updateHistory: false });
     return;
   }
@@ -235,7 +287,7 @@ backControl.addEventListener("click", (event) => {
     return;
   }
 
-  closeProject({ updateHistory: true });
+  requestProjectClose({ updateHistory: true });
 });
 
 window.addEventListener("resize", () => {

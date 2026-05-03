@@ -33,6 +33,17 @@
       <span class="back-icon" aria-hidden="true">&larr;</span>
     </button>
 
+    <dialog class="back-dialog" id="back-dialog" aria-labelledby="back-dialog-title">
+      <form method="dialog" class="back-dialog-content">
+        <h2 id="back-dialog-title">Go back?</h2>
+        <p>This will close the current project.</p>
+        <div class="back-dialog-actions">
+          <button type="submit" value="cancel">Cancel</button>
+          <button type="submit" value="confirm">Back</button>
+        </div>
+      </form>
+    </dialog>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
