@@ -1,0 +1,73 @@
+@media (max-width: 760px) {
+  .shell {
+    width: min(100% - 24px, 1180px);
+    padding-top: 20px;
+  }
+
+  .topbar {
+    display: grid;
+    align-items: start;
+  }
+
+  h1 {
+    font-size: 28px;
+    line-height: 1.15;
+  }
+
+  .view-toggle {
+    width: 100%;
+  }
+
+  .directory.grid {
+    grid-template-columns: 1fr;
+  }
+
+  .directory.list .project-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-height: 72px;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .directory.list .project-main {
+    gap: 4px;
+    padding-right: 56px;
+  }
+
+  .directory.list .project-name {
+    font-size: 16px;
+  }
+
+  .directory.list .project-header {
+    min-height: 22px;
+  }
+
+  .directory.list .badge {
+    min-width: 44px;
+    height: 22px;
+    padding: 0 7px;
+  }
+
+  .directory.list .project-description {
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .project-actions {
+    width: 100%;
+  }
+
+  .action {
+    flex: 1 1 128px;
+  }
+
+  .directory.list .project-actions {
+    width: auto;
+  }
+
+  .directory.list .action {
+    min-height: 32px;
+    padding: 0 10px;
+    flex: 0 0 auto;
+  }
+}

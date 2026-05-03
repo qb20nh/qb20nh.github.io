@@ -1,0 +1,56 @@
+.back-dialog {
+  width: min(320px, calc(100% - 32px));
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.back-dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+.back-dialog-content {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 18px;
+}
+
+.back-dialog h2,
+.back-dialog p {
+  margin: 0;
+}
+
+.back-dialog h2 {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.back-dialog p {
+  color: var(--muted);
+}
+
+.back-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.back-dialog button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.back-dialog button[value="confirm"] {
+  border-color: var(--button-bg);
+  background: var(--button-bg);
+  color: var(--button-text);
+}

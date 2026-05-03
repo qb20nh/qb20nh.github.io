@@ -1,0 +1,34 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --panel-strong: #111111;
+  --text: #111111;
+  --muted: #666666;
+  --line: #dddddd;
+  --line-strong: #999999;
+  --focus: #0066cc;
+  --button-bg: #111111;
+  --button-text: #ffffff;
+  --back-bg: #111111;
+  --back-text: #ffffff;
+  font-family:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111111;
+    --panel: #181818;
+    --panel-strong: #eeeeee;
+    --text: #eeeeee;
+    --muted: #aaaaaa;
+    --line: #333333;
+    --line-strong: #777777;
+    --focus: #66aaff;
+    --button-bg: #eeeeee;
+    --button-text: #111111;
+    --back-bg: #eeeeee;
+    --back-text: #111111;
+  }
+}
