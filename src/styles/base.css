@@ -5,6 +5,7 @@
 html {
   min-height: 100%;
   background: var(--bg);
+  scrollbar-gutter: stable;
 }
 
 body {
