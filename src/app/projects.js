@@ -1,4 +1,4 @@
-import { escapeAttribute, escapeHtml } from "./html.js";
+import { renderProjectCards } from "./project-template.js";
 
 export async function loadProjects() {
   const response = await fetch("/projects.json");
@@ -11,7 +11,7 @@ export async function loadProjects() {
 
 export function renderProjects(directory, projects, view) {
   directory.className = `directory ${view}`;
-  directory.innerHTML = projects.map(projectTemplate).join("");
+  directory.innerHTML = renderProjectCards(projects);
 }
 
 export function createProjectMap(projects) {
@@ -26,21 +26,18 @@ export function findProjectCard(directory, project) {
   );
 }
 
-function projectTemplate(project) {
-  return `
-    <article class="project-card">
-      <div class="project-main">
-        <div class="project-header">
-          <h2 class="project-name">${escapeHtml(project.name)}</h2>
-          <span class="badge">${escapeHtml(project.badge)}</span>
-        </div>
-        <p class="project-description">${escapeHtml(project.description)}</p>
-      </div>
-      <div class="project-actions">
-        <a class="action open" href="${escapeAttribute(project.path)}" data-open="${escapeHtml(project.id)}">
-          Open
-        </a>
-      </div>
-    </article>
-  `;
+export function readProjectFromTrigger(trigger) {
+  const card = trigger.closest(".project-card");
+  const id = trigger.dataset.open;
+  const path = trigger.getAttribute("href");
+  if (!card || !id || !path) return null;
+
+  return {
+    id,
+    path,
+    name: card.querySelector(".project-name")?.textContent?.trim() || id,
+    badge: card.querySelector(".badge")?.textContent?.trim() || "",
+    description:
+      card.querySelector(".project-description")?.textContent?.trim() || "",
+  };
 }

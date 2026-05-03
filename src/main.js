@@ -5,6 +5,7 @@ import {
   createProjectMap,
   findProjectCard,
   loadProjects,
+  readProjectFromTrigger,
   renderProjects,
 } from "./app/projects.js";
 import { createProjectViewer } from "./app/viewer.js";
@@ -12,7 +13,7 @@ import { setupViewToggle } from "./app/view-toggle.js";
 
 const elements = getDomElements();
 
-let projects = [];
+let projects = null;
 let projectById = new Map();
 let currentView = "grid";
 let requestProjectClose = () => {};
@@ -43,7 +44,8 @@ elements.directory.addEventListener("click", (event) => {
   if (!trigger) return;
 
   event.preventDefault();
-  const project = projectById.get(trigger.dataset.open);
+  const project =
+    projectById.get(trigger.dataset.open) || readProjectFromTrigger(trigger);
   if (!project) return;
 
   viewer.openProject(project, {
@@ -67,6 +69,11 @@ async function init() {
 }
 
 function renderDirectory() {
+  if (!projects) {
+    elements.directory.className = `directory ${currentView}`;
+    return;
+  }
+
   renderProjects(elements.directory, projects, currentView);
 }
 
