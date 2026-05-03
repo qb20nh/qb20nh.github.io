@@ -1,0 +1,344 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --panel-strong: #111111;
+  --text: #111111;
+  --muted: #666666;
+  --line: #dddddd;
+  --line-strong: #999999;
+  --focus: #0066cc;
+  --button-bg: #111111;
+  --button-text: #ffffff;
+  --back-bg: #111111;
+  --back-text: #ffffff;
+  font-family:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111111;
+    --panel: #181818;
+    --panel-strong: #eeeeee;
+    --text: #eeeeee;
+    --muted: #aaaaaa;
+    --line: #333333;
+    --line-strong: #777777;
+    --focus: #66aaff;
+    --button-bg: #eeeeee;
+    --button-text: #111111;
+    --back-bg: #eeeeee;
+    --back-text: #111111;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--bg);
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body.viewer-open {
+  overflow: hidden;
+}
+
+button,
+a {
+  font: inherit;
+}
+
+.shell {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 36px;
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: grid;
+  gap: 8px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1 {
+  max-width: 780px;
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.view-toggle {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  min-width: 188px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+}
+
+.view-toggle button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.view-toggle button[aria-pressed="true"] {
+  background: var(--button-bg);
+  color: var(--button-text);
+}
+
+.directory {
+  margin-top: 24px;
+}
+
+.directory.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.directory.list {
+  display: grid;
+  gap: 10px;
+}
+
+.project-card {
+  display: grid;
+  gap: 14px;
+  min-height: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  transition: border-color 160ms ease;
+}
+
+.project-card:hover,
+.project-card:focus-within {
+  border-color: var(--line-strong);
+}
+
+.directory.list .project-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 0;
+  gap: 16px;
+}
+
+.project-main {
+  display: grid;
+  gap: 8px;
+}
+
+.project-name {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 20px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.badge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.project-description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.48;
+}
+
+.project-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-self: end;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--button-bg);
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.action.open {
+  background: var(--button-bg);
+  color: var(--button-text);
+}
+
+.action:focus-visible,
+.view-toggle button:focus-visible,
+.back-control:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  background: #050505;
+}
+
+.viewer.is-open {
+  display: block;
+}
+
+.viewer iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: white;
+}
+
+.back-control {
+  position: fixed;
+  z-index: 50;
+  top: 18px;
+  left: 18px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--back-bg);
+  color: var(--back-text);
+  cursor: grab;
+  font-size: 22px;
+  line-height: 1;
+  touch-action: none;
+  user-select: none;
+}
+
+.back-control.is-visible {
+  display: inline-flex;
+}
+
+.back-control.is-dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+.back-control:not(.is-dragging) {
+  transition:
+    left 180ms ease,
+    top 180ms ease;
+}
+
+.back-icon {
+  line-height: 1;
+}
+
+@media (max-width: 760px) {
+  .shell {
+    width: min(100% - 24px, 1180px);
+    padding-top: 20px;
+  }
+
+  .topbar {
+    display: grid;
+    align-items: start;
+  }
+
+  h1 {
+    font-size: 28px;
+    line-height: 1.15;
+  }
+
+  .view-toggle {
+    width: 100%;
+  }
+
+  .directory.grid {
+    grid-template-columns: 1fr;
+  }
+
+  .directory.list .project-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .directory.list .project-main {
+    gap: 4px;
+  }
+
+  .directory.list .project-name {
+    font-size: 16px;
+  }
+
+  .directory.list .project-description {
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .project-actions {
+    width: 100%;
+  }
+
+  .action {
+    flex: 1 1 128px;
+  }
+
+  .directory.list .project-actions {
+    width: auto;
+  }
+
+  .directory.list .action {
+    min-height: 32px;
+    padding: 0 10px;
+    flex: 0 0 auto;
+  }
+}
