@@ -22,8 +22,22 @@ export function createProjectViewer({
 
   function openProject(project, options = {}) {
     const sourceCard = options.sourceCard || findProjectCard(project);
-    const previewTransition = beforeOpenProject(project, sourceCard);
+    const previewTransition = options.skipTransition
+      ? null
+      : beforeOpenProject(project, sourceCard);
     const requestId = ++openRequestId;
+    const openWithoutTransition = options.skipTransition || !sourceCard;
+
+    if (openWithoutTransition) {
+      syncViewerSize();
+      document.body.classList.add("viewer-open");
+      placeBackControl();
+      backControl.classList.add("is-visible");
+      replaceFrameLocation(frame, project.path);
+      applyOpenProject(project, { ...options, frameReady: true });
+      lockPageScroll();
+      return;
+    }
 
     syncViewerSize();
     prepareFrameForOpen(frame, project.path, true).then(
@@ -181,7 +195,7 @@ export function createProjectViewer({
     const project = getProjectById(id);
     if (!project) return;
 
-    if (project !== activeProject) openProject(project);
+    if (project !== activeProject) openProject(project, { skipTransition: true });
   }
 
   return {
