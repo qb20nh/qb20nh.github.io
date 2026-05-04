@@ -89,6 +89,47 @@
   visibility: hidden;
 }
 
+.project-card.is-frame-host {
+  contain: none;
+  overflow: visible;
+  z-index: 45;
+  border-color: transparent;
+  background: transparent;
+}
+
+.project-card.is-frame-host::before {
+  opacity: 0;
+}
+
+.project-card.is-frame-host .project-main,
+.project-card.is-frame-host .project-actions {
+  visibility: hidden;
+}
+
+.project-card.is-frame-host .project-preview-clip {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  border-radius: 0;
+  background: #050505;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.project-card.is-frame-host .project-preview-surface {
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.project-card.is-frame-host .project-preview-frame {
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: auto;
+  transform: none !important;
+}
+
 .project-transition-card {
   position: fixed;
   z-index: 70;

@@ -21,6 +21,7 @@ export function createProjectViewer({
 }) {
   let activeProject = null;
   let pendingBackConfirmation = null;
+  let retainedPreviewTransition = null;
   let viewportSizeUpdate = 0;
   let frameNavigationRequest = 0;
   let frameRevealRequest = 0;
@@ -56,6 +57,7 @@ export function createProjectViewer({
     document.body.classList.add("viewer-open");
     placeBackControl();
     let revealRequest = 0;
+    let keepsLoadedPreviewFrame = false;
 
     runProjectViewTransition(
       previewTransition?.sourceElement || sourceCard,
@@ -64,14 +66,19 @@ export function createProjectViewer({
         const hasLoadedPreviewFrame = Boolean(
           previewTransition?.hasLoadedPreviewFrame,
         );
+        keepsLoadedPreviewFrame = Boolean(
+          hasLoadedPreviewFrame && previewTransition?.mountLoadedFrame?.(),
+        );
 
-        mountFrameInViewer();
+        lockPageScroll();
+        if (!keepsLoadedPreviewFrame) mountFrameInViewer();
         if (!hasLoadedPreviewFrame) {
           revealRequest = holdFrameUntilReady();
         }
         applyOpenProject(project, {
           ...options,
           deferBackControl: true,
+          skipFrameMount: keepsLoadedPreviewFrame,
           skipFrameNavigation: true,
         });
         if (!hasLoadedPreviewFrame) {
@@ -100,11 +107,13 @@ export function createProjectViewer({
           : [],
         afterFinished: () => {
           if (activeProject === project) {
-            lockPageScroll();
             backControl.classList.add("is-visible");
           }
 
-          previewTransition?.release();
+          retainedPreviewTransition = keepsLoadedPreviewFrame
+            ? previewTransition
+            : null;
+          previewTransition?.release({ keepFrame: keepsLoadedPreviewFrame });
           if (revealRequest) {
             revealFrameWhenReady(project, revealRequest);
           }
@@ -117,7 +126,7 @@ export function createProjectViewer({
     syncViewerSize();
     activeProject = project;
     frame.title = `${project.name} preview`;
-    mountFrameInViewer();
+    if (!options.skipFrameMount) mountFrameInViewer();
     viewer.classList.add("is-open");
     viewer.setAttribute("aria-hidden", "false");
     document.body.classList.add("viewer-open");
@@ -197,15 +206,23 @@ export function createProjectViewer({
   function applyCloseProject(options = {}) {
     frameNavigationRequest += 1;
     frameRevealRequest += 1;
+    const retainedPreview = retainedPreviewTransition;
+    retainedPreviewTransition = null;
     activeProject = null;
-    mountFrameInViewer();
+    if (retainedPreview) {
+      retainedPreview.releaseLoadedFrame({ unload: true });
+    } else {
+      mountFrameInViewer();
+    }
     viewer.classList.remove("is-holding-frame", "is-frame-ready");
     viewer.classList.remove("is-open");
     viewer.setAttribute("aria-hidden", "true");
     document.body.classList.remove("viewer-open");
     backControl.classList.remove("is-visible");
-    replaceFrameLocation(frame, "about:blank");
-    frame.removeAttribute("src");
+    if (!retainedPreview) {
+      replaceFrameLocation(frame, "about:blank");
+      frame.removeAttribute("src");
+    }
 
     if (options.updateHistory && location.hash) {
       history.replaceState(null, "", location.pathname + location.search);

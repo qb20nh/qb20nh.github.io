@@ -176,13 +176,23 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
       sourceSurface: card,
       sourceFrame: preview?.surface || null,
       hasLoadedPreviewFrame: Boolean(preview),
+      mountLoadedFrame() {
+        if (!preview) return false;
+
+        preview.card.classList.add("is-frame-host");
+        preview.clip.hidden = false;
+        preview.frame.hidden = false;
+        preview.frame.removeAttribute("aria-hidden");
+        preview.frame.removeAttribute("tabindex");
+        return true;
+      },
       activate() {
         positionTransitionShell(transitionShell, card);
         transitionShell.hidden = false;
         card.classList.add("is-transition-source");
         if (preview) applyTransitionFrameClip(card, preview.surface);
       },
-      release() {
+      release(options = {}) {
         if (preview && activePreview === preview) {
           activePreview = null;
         }
@@ -193,12 +203,37 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
         transitionShell = null;
 
         if (preview) {
+          preview.isOpening = false;
           card.classList.remove("is-previewing", "is-preview-loaded");
-          releasePreviewFrame(preview.frame, {
-            clip: preview.clip,
-            surface: preview.surface,
-            unload: false,
-          });
+
+          if (!options.keepFrame) {
+            releasePreviewFrame(preview.frame, {
+              clip: preview.clip,
+              surface: preview.surface,
+              unload: false,
+            });
+          }
+        }
+      },
+      releaseLoadedFrame(options = {}) {
+        if (!preview) return;
+
+        const unload = options.unload ?? true;
+
+        preview.card.classList.remove(
+          "is-frame-host",
+          "is-previewing",
+          "is-preview-loaded",
+          "is-transition-source",
+        );
+        preview.isOpening = false;
+        releasePreviewFrame(preview.frame, {
+          clip: preview.clip,
+          surface: preview.surface,
+          unload,
+        });
+        if (unload) {
+          preview.frame.removeAttribute("src");
         }
       },
     };
