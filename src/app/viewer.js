@@ -1,5 +1,13 @@
 import { confirmProjectClose } from "./dialog.js";
+import {
+  applyTransitionFrameClip,
+  clearTransitionFrameClip,
+  getPreviewLayout,
+} from "./card-preview.js";
 import { runProjectViewTransition } from "./view-transition.js";
+
+const FRAME_REVEAL_FADE_MS = 220;
+const FRAME_DOM_READY_TIMEOUT_MS = 4000;
 
 export function createProjectViewer({
   viewer,
@@ -15,7 +23,11 @@ export function createProjectViewer({
   let pendingBackConfirmation = null;
   let viewportSizeUpdate = 0;
   let frameNavigationRequest = 0;
-  const frameTransitionTarget = createFrameTransitionTarget(viewer);
+  let frameRevealRequest = 0;
+  const surfaceTransitionTarget = createTransitionTarget(
+    viewer,
+    "project-surface-target",
+  );
 
   syncViewerSize();
   window.addEventListener("resize", queueViewerSizeSync);
@@ -33,6 +45,7 @@ export function createProjectViewer({
       document.body.classList.add("viewer-open");
       placeBackControl();
       backControl.classList.add("is-visible");
+      mountFrameInViewer();
       replaceFrameLocation(frame, project.path);
       applyOpenProject(project, { ...options, skipFrameNavigation: true });
       lockPageScroll();
@@ -43,28 +56,43 @@ export function createProjectViewer({
     document.body.classList.add("viewer-open");
     placeBackControl();
     backControl.classList.add("is-visible");
+    let revealRequest = 0;
 
     runProjectViewTransition(
       previewTransition?.sourceElement || sourceCard,
       viewer,
       () => {
-        if (previewTransition?.sourceFrame) {
-          viewer.classList.add("is-revealing-frame");
-        }
+        const hasLoadedPreviewFrame = Boolean(
+          previewTransition?.hasLoadedPreviewFrame,
+        );
 
+        mountFrameInViewer();
+        if (!hasLoadedPreviewFrame) {
+          revealRequest = holdFrameUntilReady();
+        }
         applyOpenProject(project, { ...options, skipFrameNavigation: true });
-        queueFrameNavigation(project);
+        if (!hasLoadedPreviewFrame) {
+          queueFrameNavigation(project);
+        }
       },
       {
         direction: "open",
         beforeStart: previewTransition?.activate,
         oldElements: getPreviewTransitionElements(previewTransition),
-        newElements: previewTransition?.sourceFrame
+        newElements: previewTransition?.sourceSurface
           ? [
               {
-                element: frameTransitionTarget,
-                className: "project-frame-transition",
+                element: surfaceTransitionTarget,
+                className: "project-surface-transition",
               },
+              ...(previewTransition.sourceFrame
+                ? [
+                    {
+                      element: frame,
+                      className: "project-frame-transition",
+                    },
+                  ]
+                : []),
             ]
           : [],
         afterFinished: () => {
@@ -73,7 +101,9 @@ export function createProjectViewer({
           }
 
           previewTransition?.release();
-          viewer.classList.remove("is-revealing-frame");
+          if (revealRequest) {
+            revealFrameWhenReady(project, revealRequest);
+          }
         },
       },
     );
@@ -83,6 +113,7 @@ export function createProjectViewer({
     syncViewerSize();
     activeProject = project;
     frame.title = `${project.name} preview`;
+    mountFrameInViewer();
     viewer.classList.add("is-open");
     viewer.setAttribute("aria-hidden", "false");
     document.body.classList.add("viewer-open");
@@ -110,10 +141,34 @@ export function createProjectViewer({
     });
   }
 
+  function holdFrameUntilReady() {
+    const request = ++frameRevealRequest;
+
+    viewer.classList.add("is-holding-frame");
+    viewer.classList.remove("is-frame-ready");
+    return request;
+  }
+
+  async function revealFrameWhenReady(project, request) {
+    await waitForFrameDomReady(frame, project.path, request);
+
+    if (request !== frameRevealRequest || activeProject !== project) return;
+
+    viewer.classList.add("is-frame-ready");
+    window.setTimeout(() => {
+      if (request !== frameRevealRequest || activeProject !== project) return;
+
+      viewer.classList.remove("is-holding-frame", "is-frame-ready");
+    }, FRAME_REVEAL_FADE_MS);
+  }
+
   function closeProject(options = {}) {
     frameNavigationRequest += 1;
+    frameRevealRequest += 1;
     const project = activeProject;
     const targetCard = project ? findProjectCard(project) : null;
+    const closeFrameTransition = prepareCloseFrameTransition(targetCard, frame);
+
     runProjectViewTransition(
       viewer,
       targetCard,
@@ -123,7 +178,10 @@ export function createProjectViewer({
       },
       {
         direction: "close",
+        oldElements: closeFrameTransition?.oldElements || [],
+        newElements: closeFrameTransition?.newElements || [],
         afterFinished: () => {
+          closeFrameTransition?.cleanup();
           if (!activeProject) unlockPageScroll();
         },
       },
@@ -132,7 +190,10 @@ export function createProjectViewer({
 
   function applyCloseProject(options = {}) {
     frameNavigationRequest += 1;
+    frameRevealRequest += 1;
     activeProject = null;
+    mountFrameInViewer();
+    viewer.classList.remove("is-holding-frame", "is-frame-ready");
     viewer.classList.remove("is-open");
     viewer.setAttribute("aria-hidden", "true");
     document.body.classList.remove("viewer-open");
@@ -143,6 +204,15 @@ export function createProjectViewer({
     if (options.updateHistory && location.hash) {
       history.replaceState(null, "", location.pathname + location.search);
     }
+  }
+
+  function mountFrameInViewer() {
+    viewer.append(frame);
+    frame.hidden = false;
+    frame.classList.remove("project-preview-frame");
+    frame.removeAttribute("style");
+    frame.removeAttribute("aria-hidden");
+    frame.removeAttribute("tabindex");
   }
 
   function lockPageScroll() {
@@ -228,28 +298,108 @@ export function createProjectViewer({
 }
 
 function getPreviewTransitionElements(previewTransition) {
-  if (!previewTransition?.sourceFrame) return [];
+  if (!previewTransition?.sourceSurface) return [];
 
-  return [
+  const elements = [
     {
-      element: previewTransition.sourceFrame,
-      className: "project-frame-transition",
+      element: previewTransition.sourceSurface,
+      className: "project-surface-transition",
     },
   ];
+
+  if (previewTransition.sourceFrame) {
+    elements.push({
+      element: previewTransition.sourceFrame,
+      className: "project-frame-transition",
+    });
+  }
+
+  return elements;
+}
+
+function prepareCloseFrameTransition(targetCard, frame) {
+  if (!targetCard) return null;
+
+  const layout = getPreviewLayout(targetCard);
+  const cardRect = targetCard.getBoundingClientRect();
+  const target = document.createElement("div");
+
+  target.className = "project-close-frame-target";
+  target.setAttribute("aria-hidden", "true");
+  Object.assign(target.style, {
+    position: "fixed",
+    left: `${cardRect.left + layout.offsetX}px`,
+    top: `${cardRect.top + layout.offsetY}px`,
+    width: `${layout.surfaceWidth}px`,
+    height: `${layout.surfaceHeight}px`,
+    opacity: "0",
+    pointerEvents: "none",
+    contain: "layout paint",
+  });
+  document.body.append(target);
+  applyTransitionFrameClip(targetCard, target);
+
+  return {
+    oldElements: [{ element: frame, className: "project-frame-transition" }],
+    newElements: [{ element: target, className: "project-frame-transition" }],
+    cleanup() {
+      target.remove();
+      clearTransitionFrameClip();
+    },
+  };
 }
 
 function replaceFrameLocation(frame, url) {
-  try {
-    frame.contentWindow.location.replace(url);
-  } catch {
-    frame.src = url;
-  }
+  frame.src = new URL(url, location.href).href;
 }
 
-function createFrameTransitionTarget(viewer) {
+function createTransitionTarget(viewer, className) {
   const target = document.createElement("div");
-  target.className = "project-frame-target";
+  target.className = className;
   target.setAttribute("aria-hidden", "true");
   viewer.append(target);
   return target;
+}
+
+function waitForFrameDomReady(frame, url, revealRequest) {
+  const expected = new URL(url, location.href);
+
+  return new Promise((resolve) => {
+    let frameRequest = 0;
+    const timeout = window.setTimeout(resolveReady, FRAME_DOM_READY_TIMEOUT_MS);
+
+    checkReady();
+
+    function checkReady() {
+      if (isFrameDomReady(frame, expected)) {
+        resolveReady();
+        return;
+      }
+
+      frameRequest = window.requestAnimationFrame(checkReady);
+    }
+
+    function resolveReady() {
+      window.clearTimeout(timeout);
+      if (frameRequest) {
+        window.cancelAnimationFrame(frameRequest);
+      }
+
+      resolve(revealRequest);
+    }
+  });
+}
+
+function isFrameDomReady(frame, expected) {
+  try {
+    const current = frame.contentWindow.location;
+    return (
+      current.origin === expected.origin &&
+      current.pathname === expected.pathname &&
+      current.search === expected.search &&
+      frame.contentDocument?.readyState !== "loading"
+    );
+  } catch {
+    return false;
+  }
 }

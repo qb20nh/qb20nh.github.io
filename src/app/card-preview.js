@@ -10,11 +10,10 @@ const PREVIEW_MEMORY_PRESSURE_BYTES = 24 * 1024 * 1024;
 const PREVIEW_HIGH_MEMORY_RATIO = 0.7;
 const PREVIEW_MONITOR_IDLE_MS = 2000;
 
-export function setupCardPreview(directory, getProjectForCard) {
+export function setupCardPreview(directory, previewFrame, getProjectForCard) {
   let activePreview = null;
   let pendingPreviewCard = null;
   let pendingPreviewTimer = 0;
-  let previewFrame = null;
   let previewClip = null;
   let previewSurface = null;
   let transitionShell = null;
@@ -27,6 +26,16 @@ export function setupCardPreview(directory, getProjectForCard) {
   let previewLayoutUpdate = 0;
   let suppressFocusPreview = false;
   const pressureMonitor = createPreviewPressureMonitor();
+
+  previewFrame.addEventListener("load", () => {
+    if (
+      activePreview?.frame === previewFrame &&
+      activePreview.token === previewToken &&
+      isFrameAtPath(previewFrame, activePreview.path)
+    ) {
+      queuePreviewLoaded();
+    }
+  });
 
   directory.addEventListener("pointerover", (event) => {
     if (event.pointerType === "touch") return;
@@ -146,39 +155,51 @@ export function setupCardPreview(directory, getProjectForCard) {
     pressureMonitor.stop();
 
     const path = project?.path ? new URL(project.path, location.href).href : "";
-    if (
-      !activePreview ||
-      activePreview.card !== card ||
-      activePreview.path !== path ||
-      !card.classList.contains("is-preview-loaded") ||
-      !isFrameAtPath(activePreview.frame, path)
-    ) {
+    const preview =
+      activePreview &&
+      activePreview.card === card &&
+      activePreview.path === path &&
+      card.classList.contains("is-preview-loaded") &&
+      isFrameAtPath(activePreview.frame, path)
+        ? activePreview
+        : null;
+
+    if (activePreview && activePreview !== preview) {
       stopActivePreview({ unload: true, fade: false });
-      return null;
     }
 
-    const preview = activePreview;
-    preview.isOpening = true;
-    transitionShell = createTransitionShell(preview.card);
+    if (preview) preview.isOpening = true;
+    transitionShell = createTransitionShell(card);
 
     return {
       sourceElement: transitionShell,
-      sourceFrame: preview.clip,
+      sourceSurface: card,
+      sourceFrame: preview?.surface || null,
+      hasLoadedPreviewFrame: Boolean(preview),
       activate() {
-        positionTransitionShell(transitionShell, preview.card);
+        positionTransitionShell(transitionShell, card);
         transitionShell.hidden = false;
-        preview.card.classList.add("is-transition-source");
+        card.classList.add("is-transition-source");
+        if (preview) applyTransitionFrameClip(card, preview.surface);
       },
       release() {
-        if (activePreview === preview) {
+        if (preview && activePreview === preview) {
           activePreview = null;
         }
 
-        preview.card.classList.remove("is-transition-source");
-        preview.card.classList.remove("is-previewing", "is-preview-loaded");
+        card.classList.remove("is-transition-source");
+        clearTransitionFrameClip();
         transitionShell?.remove();
         transitionShell = null;
-        releasePreviewFrame(preview.frame);
+
+        if (preview) {
+          card.classList.remove("is-previewing", "is-preview-loaded");
+          releasePreviewFrame(preview.frame, {
+            clip: preview.clip,
+            surface: preview.surface,
+            unload: false,
+          });
+        }
       },
     };
   }
@@ -198,7 +219,7 @@ export function setupCardPreview(directory, getProjectForCard) {
       preview.card.classList.remove("is-previewing");
     }
 
-    if (!previewFrame) return;
+    if (!previewClip?.contains(previewFrame)) return;
 
     parkPreviewFrame();
 
@@ -208,29 +229,11 @@ export function setupCardPreview(directory, getProjectForCard) {
   }
 
   function getPreviewFrame() {
-    if (previewFrame) return previewFrame;
-
     const surface = getPreviewSurface();
-    previewFrame = document.createElement("iframe");
-    previewFrame.className = "project-preview-frame";
-    previewFrame.loading = "eager";
+    previewFrame.classList.add("project-preview-frame");
     previewFrame.hidden = true;
     previewFrame.tabIndex = -1;
     previewFrame.setAttribute("aria-hidden", "true");
-    previewFrame.setAttribute(
-      "allow",
-      "autoplay 'none'; microphone 'none'; camera 'none'",
-    );
-    previewFrame.addEventListener("load", () => {
-      if (
-        activePreview?.frame === previewFrame &&
-        activePreview.token === previewToken &&
-        isFrameAtPath(previewFrame, activePreview.path)
-      ) {
-        queuePreviewLoaded();
-      }
-    });
-
     surface.append(previewFrame);
     return previewFrame;
   }
@@ -305,7 +308,9 @@ export function setupCardPreview(directory, getProjectForCard) {
     if (!previewClip) return;
 
     previewClip.hidden = true;
-    previewFrame.hidden = true;
+    if (previewClip.contains(previewFrame)) {
+      previewFrame.hidden = true;
+    }
     getPreviewDock().append(previewClip);
   }
 
@@ -367,7 +372,7 @@ export function setupCardPreview(directory, getProjectForCard) {
     cancelIdleUnload();
     idleUnloadTimer = window.setTimeout(() => {
       idleUnloadTimer = 0;
-      if (!activePreview && previewFrame) {
+      if (!activePreview && previewClip?.contains(previewFrame)) {
         pressureMonitor.notePreviewUnload();
         navigateFrame(previewFrame, "about:blank");
       }
@@ -611,10 +616,9 @@ function positionTransitionShell(shell, card) {
   shell.style.padding = cardStyle.padding;
   shell.style.gap = cardStyle.gap;
   shell.style.borderRadius = cardStyle.borderRadius;
-  shell.style.borderColor = cardStyle.borderColor;
 }
 
-function getPreviewLayout(card) {
+export function getPreviewLayout(card) {
   const cardRect = card.getBoundingClientRect();
   const viewportWidth = Math.max(1, window.innerWidth);
   const viewportHeight = Math.max(1, window.innerHeight);
@@ -662,6 +666,44 @@ function applyFrameLayout(
   frame.style.transform = `scale(${scale})`;
 }
 
+export function applyTransitionFrameClip(clipElement, surface) {
+  const clipRect = clipElement.getBoundingClientRect();
+  const surfaceRect = surface.getBoundingClientRect();
+  const rootStyle = document.documentElement.style;
+
+  rootStyle.setProperty(
+    "--project-frame-clip-top",
+    toClipPercent(clipRect.top - surfaceRect.top, surfaceRect.height),
+  );
+  rootStyle.setProperty(
+    "--project-frame-clip-right",
+    toClipPercent(surfaceRect.right - clipRect.right, surfaceRect.width),
+  );
+  rootStyle.setProperty(
+    "--project-frame-clip-bottom",
+    toClipPercent(surfaceRect.bottom - clipRect.bottom, surfaceRect.height),
+  );
+  rootStyle.setProperty(
+    "--project-frame-clip-left",
+    toClipPercent(clipRect.left - surfaceRect.left, surfaceRect.width),
+  );
+}
+
+export function clearTransitionFrameClip() {
+  const rootStyle = document.documentElement.style;
+
+  rootStyle.removeProperty("--project-frame-clip-top");
+  rootStyle.removeProperty("--project-frame-clip-right");
+  rootStyle.removeProperty("--project-frame-clip-bottom");
+  rootStyle.removeProperty("--project-frame-clip-left");
+}
+
+function toClipPercent(value, size) {
+  if (size <= 0) return "0%";
+
+  return `${(Math.max(0, value) / size) * 100}%`;
+}
+
 function isFrameAtPath(frame, path) {
   try {
     const current = frame.contentWindow.location;
@@ -677,27 +719,33 @@ function isFrameAtPath(frame, path) {
 }
 
 function navigateFrame(frame, path) {
-  try {
-    frame.contentWindow.location.replace(new URL(path, location.href).href);
-  } catch {
-    frame.src = path;
-  }
+  frame.src = new URL(path, location.href).href;
 }
 
-function releasePreviewFrame(frame) {
-  const surface = frame.parentElement?.classList.contains("project-preview-surface")
-    ? frame.parentElement
-    : null;
-  const clip = surface?.parentElement?.classList.contains("project-preview-clip")
-    ? surface.parentElement
-    : null;
+function releasePreviewFrame(frame, options = {}) {
+  const { unload = true } = options;
+  const surface =
+    options.surface ||
+    (frame.parentElement?.classList.contains("project-preview-surface")
+      ? frame.parentElement
+      : null);
+  const clip =
+    options.clip ||
+    (surface?.parentElement?.classList.contains("project-preview-clip")
+      ? surface.parentElement
+      : null);
 
-  frame.hidden = true;
+  frame.classList.remove("project-preview-frame");
   frame.removeAttribute("style");
-  navigateFrame(frame, "about:blank");
+  frame.removeAttribute("aria-hidden");
+  frame.removeAttribute("tabindex");
+
+  if (unload) {
+    frame.hidden = true;
+    navigateFrame(frame, "about:blank");
+  }
 
   if (!clip) {
-    frame.remove();
     return;
   }
 

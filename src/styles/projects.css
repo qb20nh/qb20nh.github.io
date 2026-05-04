@@ -95,8 +95,8 @@
   box-sizing: border-box;
   display: grid;
   grid-template-rows: 1fr auto;
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--panel) 36%, transparent);
+  border: 1px solid transparent;
+  background: transparent;
   overflow: hidden;
   pointer-events: none;
   contain: layout paint;
@@ -125,19 +125,30 @@ html {
   contain: layout;
 }
 
+.project-surface-transition {
+  view-transition-name: project-surface;
+  contain: layout;
+}
+
 .project-frame-transition {
   view-transition-name: project-frame;
   contain: layout;
 }
 
 ::view-transition-group(project-view) {
-  z-index: 2;
+  z-index: 3;
+  animation-duration: 400ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+::view-transition-group(project-surface) {
+  z-index: 1;
   animation-duration: 400ms;
   animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
 ::view-transition-group(project-frame) {
-  z-index: 1;
+  z-index: 2;
   animation-duration: 400ms;
   animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -149,6 +160,7 @@ html {
 }
 
 ::view-transition-image-pair(project-view),
+::view-transition-image-pair(project-surface),
 ::view-transition-image-pair(project-frame) {
   overflow: clip;
 }
@@ -162,6 +174,10 @@ html.project-view-opening::view-transition-group(back-control) {
   transform-origin: center;
 }
 
+html.project-view-opening::view-transition {
+  background: var(--bg);
+}
+
 html.project-view-opening::view-transition-new(project-view) {
   opacity: 0;
   animation: none;
@@ -169,7 +185,19 @@ html.project-view-opening::view-transition-new(project-view) {
 }
 
 html.project-view-opening::view-transition-old(project-view) {
-  animation: project-foreground-fade-out 400ms cubic-bezier(0.2, 0, 0, 1) both;
+  animation: project-foreground-fade-out 400ms linear both;
+  mix-blend-mode: normal;
+}
+
+html.project-view-opening::view-transition-old(project-surface) {
+  opacity: 1;
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html.project-view-opening::view-transition-new(project-surface) {
+  opacity: 0;
+  animation: none;
   mix-blend-mode: normal;
 }
 
@@ -187,13 +215,39 @@ html.project-view-opening::view-transition-new(project-frame) {
 }
 
 html.project-view-opening::view-transition-old(project-frame) {
-  animation:
-    project-frame-clip-open 400ms cubic-bezier(0.2, 0, 0, 1) both,
-    project-frame-preview-fade-out 400ms cubic-bezier(0.2, 0, 0, 1) both;
+  z-index: 1;
+  animation: project-frame-clip-open 400ms cubic-bezier(0.2, 0, 0, 1) both;
 }
 
 html.project-view-opening::view-transition-new(project-frame) {
-  animation: project-frame-clip-open 400ms cubic-bezier(0.2, 0, 0, 1) both;
+  z-index: 2;
+  animation:
+    project-frame-clip-open 400ms cubic-bezier(0.2, 0, 0, 1) both,
+    project-frame-main-fade-in 400ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+html.project-view-closing::view-transition-group(project-frame) {
+  z-index: 5;
+}
+
+html.project-view-closing::view-transition-old(project-frame),
+html.project-view-closing::view-transition-new(project-frame) {
+  width: 100%;
+  height: 100%;
+  clip-path: inset(0% 0% 0% 0%);
+  object-fit: cover;
+  object-position: center;
+  mix-blend-mode: normal;
+}
+
+html.project-view-closing::view-transition-old(project-frame) {
+  animation:
+    project-frame-clip-close 400ms cubic-bezier(0.2, 0, 0, 1) both,
+    project-frame-close-fade-out 400ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+html.project-view-closing::view-transition-new(project-frame) {
+  animation: project-frame-clip-close 400ms cubic-bezier(0.2, 0, 0, 1) both;
   opacity: 0;
 }
 
@@ -203,9 +257,28 @@ html.project-view-opening::view-transition-new(project-frame) {
   }
 }
 
-@keyframes project-frame-preview-fade-out {
+@keyframes project-frame-clip-close {
+  to {
+    clip-path: inset(
+      var(--project-frame-clip-top, 0%) var(--project-frame-clip-right, 0%)
+        var(--project-frame-clip-bottom, 0%) var(--project-frame-clip-left, 0%)
+    );
+  }
+}
+
+@keyframes project-frame-main-fade-in {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes project-frame-close-fade-out {
   0%,
-  35% {
+  45% {
     opacity: 1;
   }
 
@@ -215,16 +288,11 @@ html.project-view-opening::view-transition-new(project-frame) {
 }
 
 @keyframes project-foreground-fade-out {
-  0% {
+  from {
     opacity: 1;
   }
 
-  42% {
-    opacity: 0.18;
-  }
-
-  62%,
-  100% {
+  to {
     opacity: 0;
   }
 }
@@ -247,6 +315,8 @@ html.project-view-opening::view-transition-old(back-control) {
 
 ::view-transition-old(project-view),
 ::view-transition-new(project-view),
+::view-transition-old(project-surface),
+::view-transition-new(project-surface),
 ::view-transition-old(project-frame),
 ::view-transition-new(project-frame),
 ::view-transition-old(back-control),
@@ -256,6 +326,7 @@ html.project-view-opening::view-transition-old(back-control) {
 
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(project-view),
+  ::view-transition-group(project-surface),
   ::view-transition-group(project-frame),
   ::view-transition-group(back-control) {
     animation-duration: 1ms;

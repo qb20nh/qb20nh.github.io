@@ -30,6 +30,10 @@ export function runProjectViewTransition(
     "project-view-opening",
     options.direction === "open",
   );
+  document.documentElement.classList.toggle(
+    "project-view-closing",
+    options.direction === "close",
+  );
   const transition = document.startViewTransition(() => {
     removeTransitionClasses(oldEntries);
     addTransitionClasses(newEntries);
@@ -40,6 +44,7 @@ export function runProjectViewTransition(
     removeTransitionClasses(oldEntries);
     removeTransitionClasses(newEntries);
     document.documentElement.classList.remove("project-view-opening");
+    document.documentElement.classList.remove("project-view-closing");
     options.afterFinished?.();
   });
 }

@@ -20,13 +20,35 @@
   visibility: visible;
 }
 
-.viewer.is-revealing-frame {
-  background: transparent;
+.viewer.is-holding-frame {
+  background: var(--panel);
   opacity: 1;
   transition: none;
 }
 
+.viewer.is-holding-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--panel);
+  opacity: 0.68;
+  pointer-events: none;
+  transition: opacity 220ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.viewer.is-holding-frame.is-frame-ready::before {
+  opacity: 0;
+}
+
+html.project-view-opening .viewer.is-open {
+  opacity: 0;
+  transition: none;
+}
+
 .viewer iframe {
+  position: relative;
+  z-index: 0;
   display: block;
   width: 100%;
   height: 100%;
@@ -35,25 +57,15 @@
   color-scheme: inherit;
 }
 
-.viewer.is-revealing-frame iframe {
-  animation: project-frame-live-fade-in 400ms cubic-bezier(0.2, 0, 0, 1) both;
+html.is-localhost #project-frame {
+  filter: invert(1);
 }
 
-.project-frame-target {
+.project-surface-target {
   position: absolute;
   inset: 0;
   pointer-events: none;
   opacity: 0;
-}
-
-@keyframes project-frame-live-fade-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
 }
 
 .back-control {

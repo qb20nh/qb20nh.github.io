@@ -19,6 +19,11 @@ import {
 import { createProjectViewer } from "./app/viewer.js";
 
 const elements = getDomElements();
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
+
+if (LOCAL_HOSTNAMES.has(location.hostname)) {
+  document.documentElement.classList.add("is-localhost");
+}
 
 let projects = null;
 let projectById = new Map();
@@ -28,12 +33,16 @@ const backControl = setupBackControl(elements.backControl, () => {
   requestProjectClose({ updateHistory: true });
 });
 
-const cardPreview = setupCardPreview(elements.directory, (card) => {
-  const trigger = card.querySelector("[data-open]");
-  return trigger
-    ? projectById.get(trigger.dataset.open) || readProjectFromTrigger(trigger)
-    : null;
-});
+const cardPreview = setupCardPreview(
+  elements.directory,
+  elements.frame,
+  (card) => {
+    const trigger = card.querySelector("[data-open]");
+    return trigger
+      ? projectById.get(trigger.dataset.open) || readProjectFromTrigger(trigger)
+      : null;
+  },
+);
 
 const viewer = createProjectViewer({
   viewer: elements.viewer,
