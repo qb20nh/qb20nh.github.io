@@ -1,4 +1,3 @@
-const PREVIEW_IDLE_UNLOAD_MS = 800;
 const PREVIEW_FADE_OUT_MS = 240;
 const PREVIEW_MIN_START_DELAY_MS = 120;
 const PREVIEW_MAX_START_DELAY_MS = 1200;
@@ -19,7 +18,6 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
   let transitionShell = null;
   let previewDock = null;
   let previewToken = 0;
-  let idleUnloadTimer = 0;
   let fadeOutTimer = 0;
   let fadingPreview = null;
   let warmupRequest = null;
@@ -105,9 +103,8 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     const project = getProjectForCard(card);
     if (!project?.path) return;
 
-    cancelIdleUnload();
     stopWarmup();
-    stopActivePreview({ unload: false, fade: false });
+    stopActivePreview({ fade: false });
     cancelPreviewFadeOut();
 
     const frame = getPreviewFrame();
@@ -133,17 +130,15 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     if (activePreview?.card !== card) return;
     if (activePreview.isOpening) return;
 
-    stopActivePreview({ unload: false, fade: true });
-    scheduleIdleUnload();
+    stopActivePreview({ fade: true });
   }
 
   function stopAll(options = {}) {
     if (options.suppressFocus) suppressFocusPreview = true;
     cancelPendingPreview();
     stopWarmup();
-    cancelIdleUnload();
     cancelPreviewFadeOut();
-    stopActivePreview({ unload: true, fade: false });
+    stopActivePreview({ fade: false });
     pressureMonitor.stop();
   }
 
@@ -151,7 +146,6 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     suppressFocusPreview = true;
     cancelPendingPreview();
     stopWarmup();
-    cancelIdleUnload();
     pressureMonitor.stop();
 
     const path = project?.path ? new URL(project.path, location.href).href : "";
@@ -165,7 +159,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
         : null;
 
     if (activePreview && activePreview !== preview) {
-      stopActivePreview({ unload: true, fade: false });
+      stopActivePreview({ fade: false });
     }
 
     if (preview) preview.isOpening = true;
@@ -210,15 +204,12 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
             releasePreviewFrame(preview.frame, {
               clip: preview.clip,
               surface: preview.surface,
-              unload: false,
             });
           }
         }
       },
-      releaseLoadedFrame(options = {}) {
+      releaseLoadedFrame() {
         if (!preview) return;
-
-        const unload = options.unload ?? true;
 
         preview.card.classList.remove(
           "is-frame-host",
@@ -230,16 +221,12 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
         releasePreviewFrame(preview.frame, {
           clip: preview.clip,
           surface: preview.surface,
-          unload,
         });
-        if (unload) {
-          preview.frame.removeAttribute("src");
-        }
       },
     };
   }
 
-  function stopActivePreview({ unload, fade }) {
+  function stopActivePreview({ fade }) {
     const preview = activePreview;
 
     if (preview) {
@@ -247,7 +234,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
       activePreview = null;
 
       if (fade && preview.clip.parentElement === preview.card) {
-        schedulePreviewFadeOut(preview, unload);
+        schedulePreviewFadeOut(preview);
         return;
       }
 
@@ -257,10 +244,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     if (!previewClip?.contains(previewFrame)) return;
 
     parkPreviewFrame();
-
-    if (unload) {
-      navigateFrame(previewFrame, "about:blank");
-    }
+    unloadFrame(previewFrame);
   }
 
   function getPreviewFrame() {
@@ -349,17 +333,17 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     getPreviewDock().append(previewClip);
   }
 
-  function schedulePreviewFadeOut(preview, unload) {
+  function schedulePreviewFadeOut(preview) {
     cancelPreviewFadeOut();
 
-    fadingPreview = { preview, unload };
+    fadingPreview = preview;
     fadeOutTimer = window.setTimeout(finishPreviewFadeOut, PREVIEW_FADE_OUT_MS);
   }
 
   function finishPreviewFadeOut() {
     if (!fadingPreview) return;
 
-    const { preview, unload } = fadingPreview;
+    const preview = fadingPreview;
     cancelPreviewFadeOut();
 
     if (activePreview?.frame === preview.frame) return;
@@ -369,10 +353,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     if (previewFrame !== preview.frame) return;
 
     parkPreviewFrame();
-
-    if (unload) {
-      navigateFrame(previewFrame, "about:blank");
-    }
+    unloadFrame(previewFrame);
   }
 
   function cancelPreviewFadeOut() {
@@ -381,7 +362,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
 
     if (!fadingPreview) return;
 
-    fadingPreview.preview.card.classList.remove("is-previewing");
+    fadingPreview.card.classList.remove("is-previewing");
     fadingPreview = null;
   }
 
@@ -395,30 +376,12 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
   }
 
   function getPreviewDock() {
-    if (previewDock && directory.contains(previewDock)) return previewDock;
+    if (previewDock && document.body.contains(previewDock)) return previewDock;
 
     previewDock = document.createElement("div");
     previewDock.className = "project-preview-dock";
-    directory.append(previewDock);
+    document.body.append(previewDock);
     return previewDock;
-  }
-
-  function scheduleIdleUnload() {
-    cancelIdleUnload();
-    idleUnloadTimer = window.setTimeout(() => {
-      idleUnloadTimer = 0;
-      if (!activePreview && previewClip?.contains(previewFrame)) {
-        pressureMonitor.notePreviewUnload();
-        navigateFrame(previewFrame, "about:blank");
-      }
-    }, PREVIEW_IDLE_UNLOAD_MS);
-  }
-
-  function cancelIdleUnload() {
-    if (!idleUnloadTimer) return;
-
-    window.clearTimeout(idleUnloadTimer);
-    idleUnloadTimer = 0;
   }
 
   function warmProject(path) {
@@ -586,10 +549,6 @@ function createPreviewPressureMonitor() {
       const used = readHeapUsed();
       if (used && (!heapLowWater || used < heapLowWater)) heapLowWater = used;
     },
-    notePreviewUnload() {
-      adjustDelay();
-      this.restSoon();
-    },
   };
 
   function start() {
@@ -756,7 +715,6 @@ function navigateFrame(frame, path) {
 }
 
 function releasePreviewFrame(frame, options = {}) {
-  const { unload = true } = options;
   const surface =
     options.surface ||
     (frame.parentElement?.classList.contains("project-preview-surface")
@@ -773,19 +731,22 @@ function releasePreviewFrame(frame, options = {}) {
   frame.removeAttribute("aria-hidden");
   frame.removeAttribute("tabindex");
 
-  if (unload) {
-    frame.hidden = true;
-    navigateFrame(frame, "about:blank");
-  }
-
   if (!clip) {
     return;
   }
 
+  if (clip.contains(frame)) {
+    frame.hidden = true;
+    document.body.append(frame);
+  }
   surface.removeAttribute("style");
   clip.hidden = true;
   clip.removeAttribute("style");
   clip.remove();
+}
+
+function unloadFrame(frame) {
+  navigateFrame(frame, "about:blank");
 }
 
 function readHeapUsed() {

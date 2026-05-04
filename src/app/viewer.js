@@ -210,20 +210,16 @@ export function createProjectViewer({
     const retainedPreview = retainedPreviewTransition;
     retainedPreviewTransition = null;
     activeProject = null;
+    mountFrameInViewer();
     if (retainedPreview) {
-      retainedPreview.releaseLoadedFrame({ unload: true });
-    } else {
-      mountFrameInViewer();
+      retainedPreview.releaseLoadedFrame();
     }
     viewer.classList.remove("is-holding-frame", "is-frame-ready");
     viewer.classList.remove("is-open");
     viewer.setAttribute("aria-hidden", "true");
     document.body.classList.remove("viewer-open");
     backControl.classList.remove("is-visible");
-    if (!retainedPreview) {
-      replaceFrameLocation(frame, "about:blank");
-      frame.removeAttribute("src");
-    }
+    replaceFrameLocation(frame, "about:blank");
 
     if (options.updateHistory && location.hash) {
       history.replaceState(null, "", location.pathname + location.search);
