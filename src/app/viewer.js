@@ -58,6 +58,7 @@ export function createProjectViewer({
     placeBackControl();
     let revealRequest = 0;
     let keepsLoadedPreviewFrame = false;
+    let needsFrameNavigation = false;
 
     runProjectViewTransition(
       previewTransition?.sourceElement || sourceCard,
@@ -82,7 +83,7 @@ export function createProjectViewer({
           skipFrameNavigation: true,
         });
         if (!hasLoadedPreviewFrame) {
-          queueFrameNavigation(project);
+          needsFrameNavigation = true;
         }
       },
       {
@@ -114,6 +115,9 @@ export function createProjectViewer({
             ? previewTransition
             : null;
           previewTransition?.release({ keepFrame: keepsLoadedPreviewFrame });
+          if (needsFrameNavigation) {
+            queueFrameNavigation(project);
+          }
           if (revealRequest) {
             revealFrameWhenReady(project, revealRequest);
           }
