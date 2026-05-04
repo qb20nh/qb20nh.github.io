@@ -13,8 +13,9 @@ export function createProjectViewer({
 }) {
   let activeProject = null;
   let pendingBackConfirmation = null;
-  let openRequestId = 0;
   let viewportSizeUpdate = 0;
+  let frameNavigationRequest = 0;
+  const frameTransitionTarget = createFrameTransitionTarget(viewer);
 
   syncViewerSize();
   window.addEventListener("resize", queueViewerSizeSync);
@@ -25,7 +26,6 @@ export function createProjectViewer({
     const previewTransition = options.skipTransition
       ? null
       : beforeOpenProject(project, sourceCard);
-    const requestId = ++openRequestId;
     const openWithoutTransition = options.skipTransition || !sourceCard;
 
     if (openWithoutTransition) {
@@ -34,40 +34,47 @@ export function createProjectViewer({
       placeBackControl();
       backControl.classList.add("is-visible");
       replaceFrameLocation(frame, project.path);
-      applyOpenProject(project, { ...options, frameReady: true });
+      applyOpenProject(project, { ...options, skipFrameNavigation: true });
       lockPageScroll();
       return;
     }
 
     syncViewerSize();
-    prepareFrameForOpen(frame, project.path, true).then(
-      (frameReady) => {
-        if (requestId !== openRequestId) {
-          previewTransition?.release();
-          return;
+    document.body.classList.add("viewer-open");
+    placeBackControl();
+    backControl.classList.add("is-visible");
+
+    runProjectViewTransition(
+      previewTransition?.sourceElement || sourceCard,
+      viewer,
+      () => {
+        if (previewTransition?.sourceFrame) {
+          viewer.classList.add("is-revealing-frame");
         }
 
-        document.body.classList.add("viewer-open");
-        placeBackControl();
-        backControl.classList.add("is-visible");
+        applyOpenProject(project, { ...options, skipFrameNavigation: true });
+        queueFrameNavigation(project);
+      },
+      {
+        direction: "open",
+        beforeStart: previewTransition?.activate,
+        oldElements: getPreviewTransitionElements(previewTransition),
+        newElements: previewTransition?.sourceFrame
+          ? [
+              {
+                element: frameTransitionTarget,
+                className: "project-frame-transition",
+              },
+            ]
+          : [],
+        afterFinished: () => {
+          if (activeProject === project) {
+            lockPageScroll();
+          }
 
-        runProjectViewTransition(
-          previewTransition?.sourceElement || sourceCard,
-          viewer,
-          () => {
-            applyOpenProject(project, { ...options, frameReady });
-          },
-          {
-            direction: "open",
-            afterFinished: () => {
-              if (activeProject === project) {
-                lockPageScroll();
-              }
-
-              previewTransition?.release();
-            },
-          },
-        );
+          previewTransition?.release();
+          viewer.classList.remove("is-revealing-frame");
+        },
       },
     );
   }
@@ -86,11 +93,25 @@ export function createProjectViewer({
       history.pushState({ projectId: project.id }, "", `#${project.id}`);
     }
 
-    if (!options.frameReady) replaceFrameLocation(frame, project.path);
+    if (!options.skipFrameNavigation) replaceFrameLocation(frame, project.path);
+  }
+
+  function queueFrameNavigation(project) {
+    const request = ++frameNavigationRequest;
+
+    requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        if (request !== frameNavigationRequest || activeProject !== project) {
+          return;
+        }
+
+        replaceFrameLocation(frame, project.path);
+      }, 0);
+    });
   }
 
   function closeProject(options = {}) {
-    openRequestId += 1;
+    frameNavigationRequest += 1;
     const project = activeProject;
     const targetCard = project ? findProjectCard(project) : null;
     runProjectViewTransition(
@@ -110,6 +131,7 @@ export function createProjectViewer({
   }
 
   function applyCloseProject(options = {}) {
+    frameNavigationRequest += 1;
     activeProject = null;
     viewer.classList.remove("is-open");
     viewer.setAttribute("aria-hidden", "true");
@@ -205,6 +227,17 @@ export function createProjectViewer({
   };
 }
 
+function getPreviewTransitionElements(previewTransition) {
+  if (!previewTransition?.sourceFrame) return [];
+
+  return [
+    {
+      element: previewTransition.sourceFrame,
+      className: "project-frame-transition",
+    },
+  ];
+}
+
 function replaceFrameLocation(frame, url) {
   try {
     frame.contentWindow.location.replace(url);
@@ -213,43 +246,10 @@ function replaceFrameLocation(frame, url) {
   }
 }
 
-function prepareFrameForOpen(frame, url, shouldWait) {
-  if (!shouldWait) return Promise.resolve(false);
-
-  replaceFrameLocation(frame, url);
-
-  if (isFrameReadyAtUrl(frame, url)) return Promise.resolve(true);
-
-  return new Promise((resolve) => {
-    let settled = false;
-    let fallbackTimer = 0;
-
-    const settle = () => {
-      if (settled) return;
-
-      settled = true;
-      window.clearTimeout(fallbackTimer);
-      frame.removeEventListener("load", settle);
-      resolve(isFrameReadyAtUrl(frame, url));
-    };
-
-    frame.addEventListener("load", settle, { once: true });
-    fallbackTimer = window.setTimeout(settle, 1400);
-  });
-}
-
-function isFrameReadyAtUrl(frame, url) {
-  try {
-    const current = frame.contentWindow.location;
-    const expected = new URL(url, location.href);
-
-    return (
-      current.origin === expected.origin &&
-      current.pathname === expected.pathname &&
-      current.search === expected.search &&
-      frame.contentDocument.readyState !== "loading"
-    );
-  } catch {
-    return false;
-  }
+function createFrameTransitionTarget(viewer) {
+  const target = document.createElement("div");
+  target.className = "project-frame-target";
+  target.setAttribute("aria-hidden", "true");
+  viewer.append(target);
+  return target;
 }

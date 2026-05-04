@@ -16,7 +16,14 @@
 .viewer.is-open {
   opacity: 1;
   pointer-events: auto;
+  transition: opacity 180ms cubic-bezier(0.2, 0, 0, 1);
   visibility: visible;
+}
+
+.viewer.is-revealing-frame {
+  background: transparent;
+  opacity: 1;
+  transition: none;
 }
 
 .viewer iframe {
@@ -26,6 +33,27 @@
   border: 0;
   background: var(--bg);
   color-scheme: inherit;
+}
+
+.viewer.is-revealing-frame iframe {
+  animation: project-frame-live-fade-in 400ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.project-frame-target {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+@keyframes project-frame-live-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .back-control {

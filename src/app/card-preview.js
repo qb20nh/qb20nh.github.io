@@ -1,6 +1,5 @@
-const PREVIEW_IDLE_UNLOAD_MS = 800;
+re/const PREVIEW_IDLE_UNLOAD_MS = 800;
 const PREVIEW_FADE_OUT_MS = 240;
-const PREVIEW_MIN_LAYOUT_WIDTH = 760;
 const PREVIEW_MIN_START_DELAY_MS = 120;
 const PREVIEW_MAX_START_DELAY_MS = 1200;
 const PREVIEW_DELAY_STEP_MS = 90;
@@ -16,12 +15,16 @@ export function setupCardPreview(directory, getProjectForCard) {
   let pendingPreviewCard = null;
   let pendingPreviewTimer = 0;
   let previewFrame = null;
+  let previewClip = null;
+  let previewSurface = null;
+  let transitionShell = null;
   let previewDock = null;
   let previewToken = 0;
   let idleUnloadTimer = 0;
   let fadeOutTimer = 0;
   let fadingPreview = null;
   let warmupRequest = null;
+  let previewLayoutUpdate = 0;
   let suppressFocusPreview = false;
   const pressureMonitor = createPreviewPressureMonitor();
 
@@ -79,9 +82,8 @@ export function setupCardPreview(directory, getProjectForCard) {
     true,
   );
 
-  window.addEventListener("resize", () => {
-    if (activePreview) updateFrameLayout(activePreview);
-  });
+  window.addEventListener("resize", queuePreviewLayoutUpdate);
+  window.visualViewport?.addEventListener("resize", queuePreviewLayoutUpdate);
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") stopAll();
@@ -96,18 +98,20 @@ export function setupCardPreview(directory, getProjectForCard) {
 
     cancelIdleUnload();
     stopWarmup();
-    const layout = getPreviewLayout(card);
     stopActivePreview({ unload: false, fade: false });
     cancelPreviewFadeOut();
 
     const frame = getPreviewFrame();
+    const clip = getPreviewClip();
+    const surface = getPreviewSurface();
     const path = new URL(project.path, location.href).href;
-    activePreview = { card, frame, path, token: previewToken + 1 };
+    activePreview = { card, clip, surface, frame, path, token: previewToken + 1 };
     previewToken = activePreview.token;
     card.classList.add("is-previewing");
-    applyFrameLayout(frame, layout);
+    clip.hidden = false;
     frame.hidden = false;
-    card.append(frame);
+    card.append(clip);
+    updateFrameLayout(activePreview);
 
     if (isFrameAtPath(frame, path)) {
       queuePreviewLoaded();
@@ -155,15 +159,25 @@ export function setupCardPreview(directory, getProjectForCard) {
 
     const preview = activePreview;
     preview.isOpening = true;
+    transitionShell = createTransitionShell(preview.card);
 
     return {
-      sourceElement: preview.frame,
+      sourceElement: transitionShell,
+      sourceFrame: preview.clip,
+      activate() {
+        positionTransitionShell(transitionShell, preview.card);
+        transitionShell.hidden = false;
+        preview.card.classList.add("is-transition-source");
+      },
       release() {
         if (activePreview === preview) {
           activePreview = null;
         }
 
+        preview.card.classList.remove("is-transition-source");
         preview.card.classList.remove("is-previewing", "is-preview-loaded");
+        transitionShell?.remove();
+        transitionShell = null;
         releasePreviewFrame(preview.frame);
       },
     };
@@ -176,7 +190,7 @@ export function setupCardPreview(directory, getProjectForCard) {
       preview.card.classList.remove("is-preview-loaded");
       activePreview = null;
 
-      if (fade && preview.frame.parentElement === preview.card) {
+      if (fade && preview.clip.parentElement === preview.card) {
         schedulePreviewFadeOut(preview, unload);
         return;
       }
@@ -196,6 +210,7 @@ export function setupCardPreview(directory, getProjectForCard) {
   function getPreviewFrame() {
     if (previewFrame) return previewFrame;
 
+    const surface = getPreviewSurface();
     previewFrame = document.createElement("iframe");
     previewFrame.className = "project-preview-frame";
     previewFrame.loading = "eager";
@@ -216,7 +231,26 @@ export function setupCardPreview(directory, getProjectForCard) {
       }
     });
 
+    surface.append(previewFrame);
     return previewFrame;
+  }
+
+  function getPreviewClip() {
+    if (previewClip) return previewClip;
+
+    previewClip = document.createElement("div");
+    previewClip.className = "project-preview-clip";
+    previewClip.hidden = true;
+    return previewClip;
+  }
+
+  function getPreviewSurface() {
+    if (previewSurface) return previewSurface;
+
+    previewSurface = document.createElement("div");
+    previewSurface.className = "project-preview-surface";
+    getPreviewClip().append(previewSurface);
+    return previewSurface;
   }
 
   function queuePreviewLoaded() {
@@ -268,8 +302,11 @@ export function setupCardPreview(directory, getProjectForCard) {
   }
 
   function parkPreviewFrame() {
+    if (!previewClip) return;
+
+    previewClip.hidden = true;
     previewFrame.hidden = true;
-    getPreviewDock().append(previewFrame);
+    getPreviewDock().append(previewClip);
   }
 
   function schedulePreviewFadeOut(preview, unload) {
@@ -306,6 +343,15 @@ export function setupCardPreview(directory, getProjectForCard) {
 
     fadingPreview.preview.card.classList.remove("is-previewing");
     fadingPreview = null;
+  }
+
+  function queuePreviewLayoutUpdate() {
+    if (!activePreview || previewLayoutUpdate) return;
+
+    previewLayoutUpdate = window.requestAnimationFrame(() => {
+      previewLayoutUpdate = 0;
+      if (activePreview) updateFrameLayout(activePreview);
+    });
   }
 
   function getPreviewDock() {
@@ -534,26 +580,85 @@ function createPreviewPressureMonitor() {
   }
 }
 
-function updateFrameLayout({ card, frame }) {
-  applyFrameLayout(frame, getPreviewLayout(card));
+function updateFrameLayout({ card, clip, surface, frame }) {
+  applyFrameLayout(surface, frame, getPreviewLayout(clip || card));
+}
+
+function createTransitionShell(card) {
+  const shell = document.createElement("div");
+  shell.className = "project-transition-card";
+  shell.hidden = true;
+  shell.setAttribute("aria-hidden", "true");
+
+  const main = card.querySelector(".project-main")?.cloneNode(true);
+  const actions = card.querySelector(".project-actions")?.cloneNode(true);
+
+  if (main) shell.append(main);
+  if (actions) shell.append(actions);
+  document.body.append(shell);
+
+  return shell;
+}
+
+function positionTransitionShell(shell, card) {
+  const rect = card.getBoundingClientRect();
+  const cardStyle = getComputedStyle(card);
+
+  shell.style.left = `${rect.left}px`;
+  shell.style.top = `${rect.top}px`;
+  shell.style.width = `${rect.width}px`;
+  shell.style.height = `${rect.height}px`;
+  shell.style.padding = cardStyle.padding;
+  shell.style.gap = cardStyle.gap;
+  shell.style.borderRadius = cardStyle.borderRadius;
+  shell.style.borderColor = cardStyle.borderColor;
 }
 
 function getPreviewLayout(card) {
   const cardRect = card.getBoundingClientRect();
-  const layoutWidth = Math.max(
-    PREVIEW_MIN_LAYOUT_WIDTH,
-    window.innerWidth,
-    cardRect.width,
+  const viewportWidth = Math.max(1, window.innerWidth);
+  const viewportHeight = Math.max(1, window.innerHeight);
+  const scale = Math.max(
+    cardRect.width / viewportWidth,
+    cardRect.height / viewportHeight,
   );
-  const scale = cardRect.width / layoutWidth;
-  const layoutHeight = cardRect.height / scale;
+  const surfaceWidth = viewportWidth * scale;
+  const surfaceHeight = viewportHeight * scale;
+  const offsetX = (cardRect.width - surfaceWidth) / 2;
+  const offsetY = (cardRect.height - surfaceHeight) / 2;
 
-  return { layoutWidth, layoutHeight, scale };
+  return {
+    viewportWidth,
+    viewportHeight,
+    clipWidth: cardRect.width,
+    clipHeight: cardRect.height,
+    surfaceWidth,
+    surfaceHeight,
+    offsetX,
+    offsetY,
+    scale,
+  };
 }
 
-function applyFrameLayout(frame, { layoutWidth, layoutHeight, scale }) {
-  frame.style.width = `${layoutWidth}px`;
-  frame.style.height = `${layoutHeight}px`;
+function applyFrameLayout(
+  surface,
+  frame,
+  {
+    viewportWidth,
+    viewportHeight,
+    surfaceWidth,
+    surfaceHeight,
+    offsetX,
+    offsetY,
+    scale,
+  },
+) {
+  surface.style.width = `${surfaceWidth}px`;
+  surface.style.height = `${surfaceHeight}px`;
+  surface.style.left = `${offsetX}px`;
+  surface.style.top = `${offsetY}px`;
+  frame.style.width = `${viewportWidth}px`;
+  frame.style.height = `${viewportHeight}px`;
   frame.style.transform = `scale(${scale})`;
 }
 
@@ -580,10 +685,26 @@ function navigateFrame(frame, path) {
 }
 
 function releasePreviewFrame(frame) {
+  const surface = frame.parentElement?.classList.contains("project-preview-surface")
+    ? frame.parentElement
+    : null;
+  const clip = surface?.parentElement?.classList.contains("project-preview-clip")
+    ? surface.parentElement
+    : null;
+
   frame.hidden = true;
   frame.removeAttribute("style");
   navigateFrame(frame, "about:blank");
-  frame.remove();
+
+  if (!clip) {
+    frame.remove();
+    return;
+  }
+
+  surface.removeAttribute("style");
+  clip.hidden = true;
+  clip.removeAttribute("style");
+  clip.remove();
 }
 
 function readHeapUsed() {
