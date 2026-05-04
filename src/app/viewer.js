@@ -182,13 +182,14 @@ export function createProjectViewer({
     frameRevealRequest += 1;
     const project = activeProject;
     const targetCard = project ? findProjectCard(project) : null;
+
+    restorePageGutter();
     const closeFrameTransition = prepareCloseFrameTransition(targetCard, frame);
 
     runProjectViewTransition(
       viewer,
       targetCard,
       () => {
-        restorePageGutter();
         applyCloseProject(options);
       },
       {

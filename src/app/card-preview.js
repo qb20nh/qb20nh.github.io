@@ -708,19 +708,19 @@ export function applyTransitionFrameClip(clipElement, surface) {
 
   rootStyle.setProperty(
     "--project-frame-clip-top",
-    toClipPercent(clipRect.top - surfaceRect.top, surfaceRect.height),
+    toClipPixels(clipRect.top - surfaceRect.top),
   );
   rootStyle.setProperty(
     "--project-frame-clip-right",
-    toClipPercent(surfaceRect.right - clipRect.right, surfaceRect.width),
+    toClipPixels(surfaceRect.right - clipRect.right),
   );
   rootStyle.setProperty(
     "--project-frame-clip-bottom",
-    toClipPercent(surfaceRect.bottom - clipRect.bottom, surfaceRect.height),
+    toClipPixels(surfaceRect.bottom - clipRect.bottom),
   );
   rootStyle.setProperty(
     "--project-frame-clip-left",
-    toClipPercent(clipRect.left - surfaceRect.left, surfaceRect.width),
+    toClipPixels(clipRect.left - surfaceRect.left),
   );
 }
 
@@ -733,10 +733,8 @@ export function clearTransitionFrameClip() {
   rootStyle.removeProperty("--project-frame-clip-left");
 }
 
-function toClipPercent(value, size) {
-  if (size <= 0) return "0%";
-
-  return `${(Math.max(0, value) / size) * 100}%`;
+function toClipPixels(value) {
+  return `${Math.max(0, value)}px`;
 }
 
 function isFrameAtPath(frame, path) {

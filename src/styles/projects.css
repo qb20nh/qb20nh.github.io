@@ -247,8 +247,8 @@ html.project-view-opening::view-transition-new(project-frame) {
   width: 100%;
   height: 100%;
   clip-path: inset(
-    var(--project-frame-clip-top, 0%) var(--project-frame-clip-right, 0%)
-      var(--project-frame-clip-bottom, 0%) var(--project-frame-clip-left, 0%)
+    var(--project-frame-clip-top, 0px) var(--project-frame-clip-right, 0px)
+      var(--project-frame-clip-bottom, 0px) var(--project-frame-clip-left, 0px)
   );
   object-fit: cover;
   object-position: center;
@@ -275,7 +275,7 @@ html.project-view-closing::view-transition-old(project-frame),
 html.project-view-closing::view-transition-new(project-frame) {
   width: 100%;
   height: 100%;
-  clip-path: inset(0% 0% 0% 0%);
+  clip-path: inset(0px 0px 0px 0px);
   object-fit: cover;
   object-position: center;
   mix-blend-mode: normal;
@@ -294,15 +294,15 @@ html.project-view-closing::view-transition-new(project-frame) {
 
 @keyframes project-frame-clip-open {
   to {
-    clip-path: inset(0% 0% 0% 0%);
+    clip-path: inset(0px 0px 0px 0px);
   }
 }
 
 @keyframes project-frame-clip-close {
   to {
     clip-path: inset(
-      var(--project-frame-clip-top, 0%) var(--project-frame-clip-right, 0%)
-        var(--project-frame-clip-bottom, 0%) var(--project-frame-clip-left, 0%)
+      var(--project-frame-clip-top, 0px) var(--project-frame-clip-right, 0px)
+        var(--project-frame-clip-bottom, 0px) var(--project-frame-clip-left, 0px)
     );
   }
 }
