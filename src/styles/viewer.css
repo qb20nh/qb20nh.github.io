@@ -68,19 +68,20 @@ html.is-localhost #project-frame {
 }
 
 .back-control {
+    --back-control-size: 44px;
     --back-control-safe-travel: 16px;
+    --back-control-pop-distance: calc(-1 * var(--back-control-size));
+    --back-control-hover-offset: 0px;
     position: fixed;
     z-index: 50;
     top: 18px;
     left: 18px;
     display: none;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border: 1px solid var(--line);
-    border-radius: 50%;
-    background: var(--back-bg);
+    width: calc(var(--back-control-size) + var(--back-control-safe-travel));
+    height: var(--back-control-size);
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: var(--back-text);
     cursor: grab;
     font-size: 22px;
@@ -91,13 +92,41 @@ html.is-localhost #project-frame {
     transform-origin: center;
 }
 
+.back-control::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    width: var(--back-control-size);
+    height: var(--back-control-size);
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: var(--back-bg);
+    box-sizing: border-box;
+    pointer-events: none;
+    transform: translateX(var(--back-control-hover-offset));
+    transition: transform 140ms ease;
+}
+
+.back-control[data-side="right"]::before {
+    right: 0;
+    left: auto;
+}
+
 .back-control.is-visible {
-    display: inline-flex;
-    animation: back-control-pop-left 400ms ease-out;
+    display: block;
     view-transition-name: back-control;
 }
 
-.back-control[data-side="right"].is-visible {
+.back-control.is-visible::before,
+.back-control.is-visible .back-icon {
+    animation: back-control-pop-left 400ms ease-out;
+}
+
+.back-control[data-side="right"].is-visible::before,
+.back-control[data-side="right"].is-visible .back-icon {
+    --back-control-pop-distance: var(--back-control-size);
     animation-name: back-control-pop-right;
 }
 
@@ -109,28 +138,50 @@ html.is-localhost #project-frame {
 .back-control:not(.is-dragging) {
     transition:
         left 180ms ease,
-        top 180ms ease,
-        transform 140ms ease;
+        top 180ms ease;
 }
 
 .back-control[data-side="left"]:not(.is-dragging):hover,
 .back-control[data-side="left"]:not(.is-dragging):focus-visible {
-    transform: translateX(var(--back-control-safe-travel));
+    --back-control-hover-offset: var(--back-control-safe-travel);
 }
 
 .back-control[data-side="right"]:not(.is-dragging):hover,
 .back-control[data-side="right"]:not(.is-dragging):focus-visible {
-    transform: translateX(calc(-1 * var(--back-control-safe-travel)));
+    --back-control-hover-offset: calc(-1 * var(--back-control-safe-travel));
 }
 
 .back-icon {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--back-control-size);
+    height: var(--back-control-size);
     line-height: 1;
+    pointer-events: none;
+    transform: translateX(var(--back-control-hover-offset));
+    transition: transform 140ms ease;
+}
+
+.back-control[data-side="right"] .back-icon {
+    right: 0;
+    left: auto;
+}
+
+.back-control.is-dragging::before,
+.back-control.is-dragging .back-icon {
+    transition: none;
 }
 
 .back-tooltip {
     position: absolute;
     top: 50%;
-    left: calc(100% + 8px);
+    left: calc(var(--back-control-size) + 8px);
+    z-index: 2;
     display: block;
     padding: 5px 7px;
     border: 1px solid var(--line);
@@ -142,12 +193,14 @@ html.is-localhost #project-frame {
     white-space: nowrap;
     opacity: 0;
     pointer-events: none;
-    transform: translateY(-50%);
-    transition: opacity 120ms ease;
+    transform: translate(var(--back-control-hover-offset), -50%);
+    transition:
+        opacity 120ms ease,
+        transform 140ms ease;
 }
 
 .back-control[data-side="right"] .back-tooltip {
-    right: calc(100% + 8px);
+    right: calc(var(--back-control-size) + 8px);
     left: auto;
 }
 
@@ -161,9 +214,14 @@ html.project-view-opening .back-control.is-visible {
     animation: none;
 }
 
+html.project-view-opening .back-control.is-visible::before,
+html.project-view-opening .back-control.is-visible .back-icon {
+    animation: none;
+}
+
 @keyframes back-control-pop-left {
     0% {
-        transform: translateX(calc(-1 * var(--back-control-safe-travel)));
+        transform: translateX(var(--back-control-pop-distance));
     }
 
     72% {
@@ -177,7 +235,7 @@ html.project-view-opening .back-control.is-visible {
 
 @keyframes back-control-pop-right {
     0% {
-        transform: translateX(var(--back-control-safe-travel));
+        transform: translateX(var(--back-control-pop-distance));
     }
 
     72% {
@@ -190,7 +248,8 @@ html.project-view-opening .back-control.is-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .back-control.is-visible {
+    .back-control.is-visible::before,
+    .back-control.is-visible .back-icon {
         animation-duration: 1ms;
     }
 }

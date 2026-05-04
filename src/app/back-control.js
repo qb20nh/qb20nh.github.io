@@ -2,6 +2,8 @@ export function setupBackControl(backControl, onBack) {
   const dragInset = 8;
   const edgeInset = -dragInset;
   const safeTravel = dragInset - edgeInset;
+  const controlSize = 44;
+  const hitWidth = controlSize + safeTravel;
   let dragState = null;
   let suppressClick = false;
 
@@ -9,8 +11,8 @@ export function setupBackControl(backControl, onBack) {
 
   function placeBackControl() {
     const saved = getSavedBackPosition();
-    const width = backControl.offsetWidth || 44;
-    const height = backControl.offsetHeight || 44;
+    const width = backControl.offsetWidth || hitWidth;
+    const height = backControl.offsetHeight || controlSize;
     const rightEdge = getSafeRightEdge();
     const side = saved && saved.side === "right" ? "right" : "left";
     const top = clamp(
