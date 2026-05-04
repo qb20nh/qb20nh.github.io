@@ -42,7 +42,6 @@
 }
 
 html.project-view-opening .viewer.is-open {
-  opacity: 0;
   transition: none;
 }
 
