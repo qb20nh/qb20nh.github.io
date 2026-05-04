@@ -383,6 +383,8 @@ html.project-view-opening::view-transition-old(back-control) {
   display: grid;
   gap: 8px;
   align-content: start;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .project-header {
@@ -442,4 +444,6 @@ html.project-view-opening::view-transition-old(back-control) {
   flex-wrap: wrap;
   gap: 8px;
   align-self: end;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }

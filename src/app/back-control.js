@@ -1,8 +1,11 @@
 export function setupBackControl(backControl, onBack) {
-  const edgeInset = -8;
   const dragInset = 8;
+  const edgeInset = -dragInset;
+  const safeTravel = dragInset - edgeInset;
   let dragState = null;
   let suppressClick = false;
+
+  backControl.style.setProperty("--back-control-safe-travel", `${safeTravel}px`);
 
   function placeBackControl() {
     const saved = getSavedBackPosition();

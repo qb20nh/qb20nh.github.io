@@ -68,6 +68,7 @@ html.is-localhost #project-frame {
 }
 
 .back-control {
+    --back-control-safe-travel: 16px;
     position: fixed;
     z-index: 50;
     top: 18px;
@@ -114,12 +115,12 @@ html.is-localhost #project-frame {
 
 .back-control[data-side="left"]:not(.is-dragging):hover,
 .back-control[data-side="left"]:not(.is-dragging):focus-visible {
-    transform: translateX(8px);
+    transform: translateX(var(--back-control-safe-travel));
 }
 
 .back-control[data-side="right"]:not(.is-dragging):hover,
 .back-control[data-side="right"]:not(.is-dragging):focus-visible {
-    transform: translateX(-8px);
+    transform: translateX(calc(-1 * var(--back-control-safe-travel)));
 }
 
 .back-icon {
@@ -162,11 +163,11 @@ html.project-view-opening .back-control.is-visible {
 
 @keyframes back-control-pop-left {
     0% {
-        transform: translateX(-16px);
+        transform: translateX(calc(-1 * var(--back-control-safe-travel)));
     }
 
     72% {
-        transform: translateX(8px);
+        transform: translateX(var(--back-control-safe-travel));
     }
 
     100% {
@@ -176,11 +177,11 @@ html.project-view-opening .back-control.is-visible {
 
 @keyframes back-control-pop-right {
     0% {
-        transform: translateX(16px);
+        transform: translateX(var(--back-control-safe-travel));
     }
 
     72% {
-        transform: translateX(-8px);
+        transform: translateX(calc(-1 * var(--back-control-safe-travel)));
     }
 
     100% {
