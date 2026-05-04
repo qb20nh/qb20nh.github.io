@@ -20,9 +20,9 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
   let previewToken = 0;
   let fadeOutTimer = 0;
   let fadingPreview = null;
-  let warmupRequest = null;
   let previewLayoutUpdate = 0;
   let suppressFocusPreview = false;
+  const resourceHints = new Set();
   const pressureMonitor = createPreviewPressureMonitor();
 
   previewFrame.addEventListener("load", () => {
@@ -42,18 +42,19 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     const card = getEventCard(directory, event.target);
     if (!card || containsRelatedTarget(card, event.relatedTarget)) return;
 
-    queuePreview(card);
+    queuePreview(card, primeCardResources(card));
   });
 
   directory.addEventListener("pointerdown", (event) => {
-    if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
-
     suppressFocusPreview = false;
     const card = getEventCard(directory, event.target);
     if (!card) return;
 
+    const project = primeCardResources(card);
+    if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+
     card.focus({ preventScroll: true });
-    queuePreview(card);
+    queuePreview(card, project);
   });
 
   directory.addEventListener("pointerout", (event) => {
@@ -70,7 +71,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     if (suppressFocusPreview) return;
 
     const card = getEventCard(directory, event.target);
-    if (card) queuePreview(card);
+    if (card) queuePreview(card, primeCardResources(card));
   });
 
   directory.addEventListener("focusout", (event) => {
@@ -103,7 +104,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     const project = getProjectForCard(card);
     if (!project?.path) return;
 
-    stopWarmup();
+    primeProjectResources(project.path);
     stopActivePreview({ fade: false });
     cancelPreviewFadeOut();
 
@@ -136,7 +137,6 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
   function stopAll(options = {}) {
     if (options.suppressFocus) suppressFocusPreview = true;
     cancelPendingPreview();
-    stopWarmup();
     cancelPreviewFadeOut();
     stopActivePreview({ fade: false });
     pressureMonitor.stop();
@@ -145,7 +145,6 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
   function prepareOpenTransition(card, project) {
     suppressFocusPreview = true;
     cancelPendingPreview();
-    stopWarmup();
     pressureMonitor.stop();
 
     const path = project?.path ? new URL(project.path, location.href).href : "";
@@ -292,16 +291,13 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     });
   }
 
-  function queuePreview(card) {
+  function queuePreview(card, project = primeCardResources(card)) {
     if (document.body.classList.contains("viewer-open")) return;
     if (activePreview?.card === card) return;
-
-    const project = getProjectForCard(card);
     if (!project?.path) return;
 
     pendingPreviewCard = card;
     pressureMonitor.wake();
-    if (pressureMonitor.canWarm()) warmProject(project.path);
     window.clearTimeout(pendingPreviewTimer);
     pendingPreviewTimer = window.setTimeout(() => {
       pendingPreviewTimer = 0;
@@ -319,7 +315,6 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     pendingPreviewCard = null;
     window.clearTimeout(pendingPreviewTimer);
     pendingPreviewTimer = 0;
-    stopWarmup();
     if (!activePreview) pressureMonitor.restSoon();
   }
 
@@ -384,31 +379,43 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     return previewDock;
   }
 
-  function warmProject(path) {
-    const href = new URL(path, location.href).href;
-    if (warmupRequest?.href === href) return;
-
-    stopWarmup();
-
-    const controller = new AbortController();
-    warmupRequest = { href, controller };
-    fetch(href, {
-      cache: "force-cache",
-      signal: controller.signal,
-    })
-      .catch(() => {})
-      .finally(() => {
-        if (warmupRequest?.controller === controller) {
-          warmupRequest = null;
-        }
-      });
+  function primeCardResources(card) {
+    const project = getProjectForCard(card);
+    if (project?.path) primeProjectResources(project.path);
+    return project;
   }
 
-  function stopWarmup() {
-    if (!warmupRequest) return;
+  function primeProjectResources(path) {
+    const url = new URL(path, location.href);
 
-    warmupRequest.controller.abort();
-    warmupRequest = null;
+    if (url.origin !== location.origin) {
+      appendResourceHint(`preconnect:${url.origin}`, {
+        rel: "preconnect",
+        href: url.origin,
+        crossOrigin: "anonymous",
+      });
+    }
+
+    appendResourceHint(`preload:${url.href}`, {
+      rel: "preload",
+      href: url.href,
+      as: "document",
+      fetchPriority: "high",
+    });
+  }
+
+  function appendResourceHint(key, attrs) {
+    if (resourceHints.has(key)) return;
+
+    const link = document.createElement("link");
+    link.dataset.previewHint = "";
+    link.rel = attrs.rel;
+    link.href = attrs.href;
+    if (attrs.as) link.as = attrs.as;
+    if (attrs.crossOrigin) link.crossOrigin = attrs.crossOrigin;
+    if (attrs.fetchPriority) link.fetchPriority = attrs.fetchPriority;
+    document.head.append(link);
+    resourceHints.add(key);
   }
 
   return { prepareOpenTransition, stopAll };
@@ -535,10 +542,6 @@ function createPreviewPressureMonitor() {
       }, PREVIEW_MONITOR_IDLE_MS);
     },
     stop,
-    canWarm() {
-      start();
-      return delay <= PREVIEW_MIN_START_DELAY_MS * 2 && longFrameScore < 1;
-    },
     getDelay() {
       start();
       adjustDelay();
