@@ -55,7 +55,6 @@ export function createProjectViewer({
     syncViewerSize();
     document.body.classList.add("viewer-open");
     placeBackControl();
-    backControl.classList.add("is-visible");
     let revealRequest = 0;
 
     runProjectViewTransition(
@@ -70,7 +69,11 @@ export function createProjectViewer({
         if (!hasLoadedPreviewFrame) {
           revealRequest = holdFrameUntilReady();
         }
-        applyOpenProject(project, { ...options, skipFrameNavigation: true });
+        applyOpenProject(project, {
+          ...options,
+          deferBackControl: true,
+          skipFrameNavigation: true,
+        });
         if (!hasLoadedPreviewFrame) {
           queueFrameNavigation(project);
         }
@@ -98,6 +101,7 @@ export function createProjectViewer({
         afterFinished: () => {
           if (activeProject === project) {
             lockPageScroll();
+            backControl.classList.add("is-visible");
           }
 
           previewTransition?.release();
@@ -118,7 +122,9 @@ export function createProjectViewer({
     viewer.setAttribute("aria-hidden", "false");
     document.body.classList.add("viewer-open");
     placeBackControl();
-    backControl.classList.add("is-visible");
+    if (!options.deferBackControl) {
+      backControl.classList.add("is-visible");
+    }
 
     if (options.updateHistory && location.hash !== `#${project.id}`) {
       history.pushState({ projectId: project.id }, "", `#${project.id}`);

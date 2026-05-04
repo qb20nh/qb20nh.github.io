@@ -185,7 +185,7 @@ html.project-view-opening::view-transition-new(project-view) {
 }
 
 html.project-view-opening::view-transition-old(project-view) {
-  animation: project-foreground-fade-out 400ms linear both;
+  animation: project-foreground-fade-out 400ms ease-out both;
   mix-blend-mode: normal;
 }
 
@@ -223,7 +223,7 @@ html.project-view-opening::view-transition-new(project-frame) {
   z-index: 2;
   animation:
     project-frame-clip-open 400ms cubic-bezier(0.2, 0, 0, 1) both,
-    project-frame-main-fade-in 400ms cubic-bezier(0.2, 0, 0, 1) both;
+    project-frame-main-fade-in 400ms linear both;
 }
 
 html.project-view-closing::view-transition-group(project-frame) {
@@ -243,7 +243,7 @@ html.project-view-closing::view-transition-new(project-frame) {
 html.project-view-closing::view-transition-old(project-frame) {
   animation:
     project-frame-clip-close 400ms cubic-bezier(0.2, 0, 0, 1) both,
-    project-frame-close-fade-out 400ms cubic-bezier(0.2, 0, 0, 1) both;
+    project-frame-close-fade-out 400ms linear both;
 }
 
 html.project-view-closing::view-transition-new(project-frame) {
@@ -298,8 +298,8 @@ html.project-view-closing::view-transition-new(project-frame) {
 }
 
 html.project-view-opening::view-transition-new(back-control) {
-  opacity: 1;
-  animation: back-control-pop-left 220ms ease-out;
+  opacity: 0;
+  animation: none;
   mix-blend-mode: normal;
 }
 
