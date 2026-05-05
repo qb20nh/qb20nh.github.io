@@ -113,7 +113,6 @@
 
 .project-card.is-frame-host .project-preview-clip {
   position: fixed;
-  inset: 0;
   z-index: 0;
   border-radius: 0;
   background: #050505;
@@ -121,18 +120,8 @@
   pointer-events: auto;
 }
 
-.project-card.is-frame-host .project-preview-surface {
-  top: 0 !important;
-  left: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-}
-
 .project-card.is-frame-host .project-preview-frame {
-  width: 100% !important;
-  height: 100% !important;
   pointer-events: auto;
-  transform: none !important;
 }
 
 .project-transition-card {

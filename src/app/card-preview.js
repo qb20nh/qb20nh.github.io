@@ -175,6 +175,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
         preview.card.classList.add("is-frame-host");
         preview.clip.hidden = false;
         preview.frame.hidden = false;
+        applyHostedFrameLayout(preview.clip, preview.surface, preview.frame);
         preview.frame.removeAttribute("aria-hidden");
         preview.frame.removeAttribute("tabindex");
         return true;
@@ -366,11 +367,11 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
   }
 
   function queuePreviewLayoutUpdate() {
-    if (!activePreview || previewLayoutUpdate) return;
+    if (!activePreview || activePreview.isOpening || previewLayoutUpdate) return;
 
     previewLayoutUpdate = window.requestAnimationFrame(() => {
       previewLayoutUpdate = 0;
-      if (activePreview) updateFrameLayout(activePreview);
+      if (activePreview && !activePreview.isOpening) updateFrameLayout(activePreview);
     });
   }
 
@@ -665,6 +666,38 @@ function applyFrameLayout(
   frame.style.width = `${viewportWidth}px`;
   frame.style.height = `${viewportHeight}px`;
   frame.style.transform = `scale(${scale})`;
+}
+
+function applyHostedFrameLayout(clip, surface, frame) {
+  const viewportWidth = frame.style.width || `${Math.max(1, window.innerWidth)}px`;
+  const viewportHeight =
+    frame.style.height || `${Math.max(1, window.innerHeight)}px`;
+
+  Object.assign(clip.style, {
+    position: "fixed",
+    inset: "auto",
+    top: "0px",
+    right: "auto",
+    bottom: "auto",
+    left: "0px",
+    width: viewportWidth,
+    height: viewportHeight,
+    borderRadius: "0px",
+    opacity: "1",
+    pointerEvents: "auto",
+  });
+  Object.assign(surface.style, {
+    top: "0px",
+    left: "0px",
+    width: viewportWidth,
+    height: viewportHeight,
+  });
+  Object.assign(frame.style, {
+    width: viewportWidth,
+    height: viewportHeight,
+    pointerEvents: "auto",
+    transform: "none",
+  });
 }
 
 export function applyTransitionFrameClip(clipElement, surface) {
