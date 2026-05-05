@@ -1,14 +1,16 @@
 {
   "name": "qb20nh-github-io",
   "private": true,
-  "packageManager": "pnpm@10.33.2",
+  "packageManager": "pnpm@10.33.3",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "jscpd": "jscpd --config .jscpd.json src index.html vite.config.js"
   },
   "devDependencies": {
+    "jscpd": "^4.0.9",
     "vite": "8.0.10"
   }
 }

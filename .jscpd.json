@@ -1,0 +1,8 @@
+{
+  "minLines": 8,
+  "minTokens": 80,
+  "threshold": 1,
+  "reporters": ["console"],
+  "ignore": ["**/dev/**", "**/_next/**", "**/.git/**"],
+  "gitignore": true
+}

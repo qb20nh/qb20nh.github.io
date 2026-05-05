@@ -182,8 +182,12 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
       activate() {
         positionTransitionShell(transitionShell, card);
         transitionShell.hidden = false;
+        transitionShell.style.visibility = "";
         card.classList.add("is-transition-source");
         if (preview) applyTransitionFrameClip(card, preview.surface);
+      },
+      hideLiveSource() {
+        if (transitionShell) transitionShell.style.visibility = "hidden";
       },
       release(options = {}) {
         if (preview && activePreview === preview) {

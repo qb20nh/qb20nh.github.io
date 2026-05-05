@@ -97,6 +97,10 @@ export function createProjectViewer({
           previewTransition?.activate?.();
           emptyFrameTransition?.activate();
         },
+        afterReady() {
+          previewTransition?.hideLiveSource?.();
+          emptyFrameTransition?.hideLiveTarget();
+        },
         oldElements: [
           {
             element: document.documentElement,
@@ -395,6 +399,9 @@ function prepareOpenEmptyFrameTransition(sourceCard) {
         height: `${rect.height}px`,
         borderRadius: "0px",
       });
+    },
+    hideLiveTarget() {
+      target.style.visibility = "hidden";
     },
     cleanup() {
       target.remove();

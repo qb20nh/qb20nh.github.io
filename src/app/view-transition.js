@@ -40,6 +40,12 @@ export function runProjectViewTransition(
     mutate();
   });
 
+  transition.ready
+    ?.then(() => {
+      options.afterReady?.();
+    })
+    .catch(() => {});
+
   transition.finished.finally(() => {
     removeTransitionClasses(oldEntries);
     removeTransitionClasses(newEntries);
