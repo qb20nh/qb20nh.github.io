@@ -59,6 +59,10 @@ export function createProjectViewer({
     let revealRequest = 0;
     let keepsLoadedPreviewFrame = false;
     let needsFrameNavigation = false;
+    const startsWithoutLoadedPreviewFrame = !previewTransition?.hasLoadedPreviewFrame;
+    const emptyFrameTransition = startsWithoutLoadedPreviewFrame
+      ? prepareOpenEmptyFrameTransition(sourceCard)
+      : null;
 
     runProjectViewTransition(
       previewTransition?.sourceElement || sourceCard,
@@ -82,30 +86,44 @@ export function createProjectViewer({
           skipFrameMount: keepsLoadedPreviewFrame,
           skipFrameNavigation: true,
         });
+        emptyFrameTransition?.expand(viewer);
         if (!hasLoadedPreviewFrame) {
           needsFrameNavigation = true;
         }
       },
       {
         direction: "open",
-        beforeStart: previewTransition?.activate,
-        oldElements: getPreviewTransitionElements(previewTransition),
-        newElements: previewTransition?.sourceSurface
-          ? [
-              {
-                element: surfaceTransitionTarget,
-                className: "project-surface-transition",
-              },
-              ...(previewTransition.sourceFrame
-                ? [
-                    {
-                      element: frame,
-                      className: "project-frame-transition",
-                    },
-                  ]
-                : []),
-            ]
-          : [],
+        beforeStart() {
+          previewTransition?.activate?.();
+          emptyFrameTransition?.activate();
+        },
+        oldElements: [
+          {
+            element: document.documentElement,
+            className: "project-page-transition",
+          },
+          ...getPreviewTransitionElements(previewTransition),
+          ...(emptyFrameTransition?.oldElements || []),
+        ],
+        newElements: [
+          ...(previewTransition?.sourceSurface
+            ? [
+                {
+                  element: surfaceTransitionTarget,
+                  className: "project-surface-transition",
+                },
+                ...(previewTransition.sourceFrame
+                  ? [
+                      {
+                        element: frame,
+                        className: "project-frame-transition",
+                      },
+                    ]
+                  : []),
+              ]
+            : []),
+          ...(emptyFrameTransition?.newElements || []),
+        ],
         afterFinished: () => {
           if (activeProject === project) {
             backControl.classList.add("is-visible");
@@ -115,6 +133,7 @@ export function createProjectViewer({
             ? previewTransition
             : null;
           previewTransition?.release({ keepFrame: keepsLoadedPreviewFrame });
+          emptyFrameTransition?.cleanup();
           if (needsFrameNavigation) {
             queueFrameNavigation(project);
           }
@@ -339,6 +358,48 @@ function getPreviewTransitionElements(previewTransition) {
   }
 
   return elements;
+}
+
+function prepareOpenEmptyFrameTransition(sourceCard) {
+  if (!sourceCard) return null;
+
+  const target = document.createElement("div");
+  target.className = "project-open-frame-target";
+  target.hidden = true;
+  target.setAttribute("aria-hidden", "true");
+  document.body.append(target);
+
+  return {
+    oldElements: [{ element: target, className: "project-frame-transition" }],
+    newElements: [{ element: target, className: "project-frame-transition" }],
+    activate() {
+      const rect = sourceCard.getBoundingClientRect();
+      const sourceStyle = getComputedStyle(sourceCard);
+
+      Object.assign(target.style, {
+        left: `${rect.left}px`,
+        top: `${rect.top}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+        borderRadius: sourceStyle.borderRadius,
+      });
+      target.hidden = false;
+    },
+    expand(viewer) {
+      const rect = viewer.getBoundingClientRect();
+
+      Object.assign(target.style, {
+        left: `${rect.left}px`,
+        top: `${rect.top}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+        borderRadius: "0px",
+      });
+    },
+    cleanup() {
+      target.remove();
+    },
+  };
 }
 
 function prepareCloseFrameTransition(targetCard, frame) {
