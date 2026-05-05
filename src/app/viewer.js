@@ -4,6 +4,7 @@ import {
   clearTransitionFrameClip,
   getPreviewLayout,
 } from "./card-preview.js";
+import { readVisibleViewport } from "./viewport.js";
 import { runProjectViewTransition } from "./view-transition.js";
 
 const FRAME_REVEAL_FADE_MS = 220;
@@ -22,6 +23,7 @@ export function createProjectViewer({
   let activeProject = null;
   let pendingBackConfirmation = null;
   let retainedPreviewTransition = null;
+  let isOpeningTransition = false;
   let viewportSizeUpdate = 0;
   let frameNavigationRequest = 0;
   let frameRevealRequest = 0;
@@ -36,24 +38,25 @@ export function createProjectViewer({
 
   function openProject(project, options = {}) {
     const sourceCard = options.sourceCard || findProjectCard(project);
+    const openViewport = readVisibleViewport();
     const previewTransition = options.skipTransition
       ? null
-      : beforeOpenProject(project, sourceCard);
+      : beforeOpenProject(project, sourceCard, openViewport);
     const openWithoutTransition = options.skipTransition || !sourceCard;
 
     if (openWithoutTransition) {
-      syncViewerSize();
+      syncViewerSize(openViewport);
       document.body.classList.add("viewer-open");
       placeBackControl();
       backControl.classList.add("is-visible");
       mountFrameInViewer();
       replaceFrameLocation(frame, project.path);
       applyOpenProject(project, { ...options, skipFrameNavigation: true });
-      lockPageScroll();
+      lockPageScroll(openViewport);
       return;
     }
 
-    syncViewerSize();
+    syncViewerSize(openViewport);
     document.body.classList.add("viewer-open");
     placeBackControl();
     let revealRequest = 0;
@@ -64,6 +67,7 @@ export function createProjectViewer({
       ? prepareOpenEmptyFrameTransition(sourceCard)
       : null;
 
+    isOpeningTransition = true;
     runProjectViewTransition(
       previewTransition?.sourceElement || sourceCard,
       viewer,
@@ -72,10 +76,11 @@ export function createProjectViewer({
           previewTransition?.hasLoadedPreviewFrame,
         );
         keepsLoadedPreviewFrame = Boolean(
-          hasLoadedPreviewFrame && previewTransition?.mountLoadedFrame?.(),
+          hasLoadedPreviewFrame &&
+            previewTransition?.mountLoadedFrame?.(openViewport),
         );
 
-        lockPageScroll();
+        lockPageScroll(openViewport);
         if (!keepsLoadedPreviewFrame) mountFrameInViewer();
         if (!hasLoadedPreviewFrame) {
           revealRequest = holdFrameUntilReady();
@@ -129,6 +134,10 @@ export function createProjectViewer({
           ...(emptyFrameTransition?.newElements || []),
         ],
         afterFinished: () => {
+          isOpeningTransition = false;
+          syncViewerSize();
+          placeBackControl();
+
           if (activeProject === project) {
             backControl.classList.add("is-visible");
           }
@@ -262,10 +271,10 @@ export function createProjectViewer({
     frame.removeAttribute("tabindex");
   }
 
-  function lockPageScroll() {
+  function lockPageScroll(viewport) {
     document.documentElement.classList.add("viewer-scroll-locked");
     document.body.classList.add("viewer-scroll-locked");
-    syncViewerSize();
+    syncViewerSize(viewport);
     placeBackControl();
   }
 
@@ -279,17 +288,21 @@ export function createProjectViewer({
   }
 
   function queueViewerSizeSync() {
+    if (isOpeningTransition) return;
     if (viewportSizeUpdate) return;
 
     viewportSizeUpdate = window.requestAnimationFrame(() => {
       viewportSizeUpdate = 0;
       syncViewerSize();
+      placeBackControl();
     });
   }
 
-  function syncViewerSize() {
-    viewer.style.setProperty("--viewer-width", `${window.innerWidth}px`);
-    viewer.style.setProperty("--viewer-height", `${window.innerHeight}px`);
+  function syncViewerSize(viewport = readVisibleViewport()) {
+    viewer.style.setProperty("--viewer-left", `${viewport.left}px`);
+    viewer.style.setProperty("--viewer-top", `${viewport.top}px`);
+    viewer.style.setProperty("--viewer-width", `${viewport.width}px`);
+    viewer.style.setProperty("--viewer-height", `${viewport.height}px`);
   }
 
   function requestProjectClose(options = {}) {

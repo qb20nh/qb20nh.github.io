@@ -1,3 +1,5 @@
+import { readVisibleViewport } from "./viewport.js";
+
 const PREVIEW_FADE_OUT_MS = 240;
 const PREVIEW_MIN_START_DELAY_MS = 120;
 const PREVIEW_MAX_START_DELAY_MS = 1200;
@@ -142,7 +144,11 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     pressureMonitor.stop();
   }
 
-  function prepareOpenTransition(card, project) {
+  function prepareOpenTransition(
+    card,
+    project,
+    openViewport = readVisibleViewport(),
+  ) {
     suppressFocusPreview = true;
     cancelPendingPreview();
     pressureMonitor.stop();
@@ -169,13 +175,18 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
       sourceSurface: card,
       sourceFrame: preview?.surface || null,
       hasLoadedPreviewFrame: Boolean(preview),
-      mountLoadedFrame() {
+      mountLoadedFrame(viewport = openViewport) {
         if (!preview) return false;
 
         preview.card.classList.add("is-frame-host");
         preview.clip.hidden = false;
         preview.frame.hidden = false;
-        applyHostedFrameLayout(preview.clip, preview.surface, preview.frame);
+        applyHostedFrameLayout(
+          preview.clip,
+          preview.surface,
+          preview.frame,
+          viewport,
+        );
         preview.frame.removeAttribute("aria-hidden");
         preview.frame.removeAttribute("tabindex");
         return true;
@@ -620,10 +631,10 @@ function positionTransitionShell(shell, card) {
   shell.style.borderRadius = cardStyle.borderRadius;
 }
 
-export function getPreviewLayout(card) {
+export function getPreviewLayout(card, viewport = readVisibleViewport()) {
   const cardRect = card.getBoundingClientRect();
-  const viewportWidth = Math.max(1, window.innerWidth);
-  const viewportHeight = Math.max(1, window.innerHeight);
+  const viewportWidth = viewport.width;
+  const viewportHeight = viewport.height;
   const scale = Math.max(
     cardRect.width / viewportWidth,
     cardRect.height / viewportHeight,
@@ -668,18 +679,22 @@ function applyFrameLayout(
   frame.style.transform = `scale(${scale})`;
 }
 
-function applyHostedFrameLayout(clip, surface, frame) {
-  const viewportWidth = frame.style.width || `${Math.max(1, window.innerWidth)}px`;
-  const viewportHeight =
-    frame.style.height || `${Math.max(1, window.innerHeight)}px`;
+function applyHostedFrameLayout(
+  clip,
+  surface,
+  frame,
+  viewport = readVisibleViewport(),
+) {
+  const viewportWidth = frame.style.width || `${viewport.width}px`;
+  const viewportHeight = frame.style.height || `${viewport.height}px`;
 
   Object.assign(clip.style, {
     position: "fixed",
     inset: "auto",
-    top: "0px",
+    top: `${viewport.top}px`,
     right: "auto",
     bottom: "auto",
-    left: "0px",
+    left: `${viewport.left}px`,
     width: viewportWidth,
     height: viewportHeight,
     borderRadius: "0px",

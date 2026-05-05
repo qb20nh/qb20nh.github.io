@@ -1,7 +1,7 @@
 .viewer {
     position: fixed;
-    top: 0;
-    left: 0;
+    top: var(--viewer-top, 0px);
+    left: var(--viewer-left, 0px);
     z-index: 40;
     display: block;
     width: var(--viewer-width, 100vw);

@@ -52,8 +52,8 @@ const viewer = createProjectViewer({
   getProjectById: (id) => projectById.get(id),
   findProjectCard: (project) => findProjectCard(elements.directory, project),
   placeBackControl: backControl.placeBackControl,
-  beforeOpenProject: (project, sourceCard) =>
-    cardPreview.prepareOpenTransition(sourceCard, project),
+  beforeOpenProject: (project, sourceCard, viewport) =>
+    cardPreview.prepareOpenTransition(sourceCard, project, viewport),
 });
 
 requestProjectClose = viewer.requestProjectClose;
