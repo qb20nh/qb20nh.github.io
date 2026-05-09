@@ -23,6 +23,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
   let fadeOutTimer = 0;
   let fadingPreview = null;
   let previewLayoutUpdate = 0;
+  let pendingPreviewSource = null;
   let suppressFocusPreview = false;
   const resourceHints = new Set();
   const pressureMonitor = createPreviewPressureMonitor();
@@ -44,7 +45,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     const card = getEventCard(directory, event.target);
     if (!card || containsRelatedTarget(card, event.relatedTarget)) return;
 
-    queuePreview(card, primeCardResources(card));
+    queuePreview(card, primeCardResources(card), "pointer");
   });
 
   directory.addEventListener("pointerdown", (event) => {
@@ -56,8 +57,20 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
 
     card.focus({ preventScroll: true });
-    queuePreview(card, project);
+    queuePreview(card, project, "touch");
   });
+
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+      if (getEventCard(directory, event.target)) return;
+
+      if (pendingPreviewSource === "touch") cancelPendingPreview();
+      if (activePreview?.source === "touch") stopActivePreview({ fade: true });
+    },
+    true,
+  );
 
   directory.addEventListener("pointerout", (event) => {
     if (event.pointerType === "touch" || event.pointerType === "pen") return;
@@ -79,6 +92,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
   directory.addEventListener("focusout", (event) => {
     const card = getEventCard(directory, event.target);
     if (!card || containsRelatedTarget(card, event.relatedTarget)) return;
+    if (shouldKeepTouchPreview(card)) return;
 
     cancelPendingPreview(card);
     stopPreview(card);
@@ -114,8 +128,17 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     const clip = getPreviewClip();
     const surface = getPreviewSurface();
     const path = new URL(project.path, location.href).href;
-    activePreview = { card, clip, surface, frame, path, token: previewToken + 1 };
+    activePreview = {
+      card,
+      clip,
+      surface,
+      frame,
+      path,
+      source: pendingPreviewSource,
+      token: previewToken + 1,
+    };
     previewToken = activePreview.token;
+    pendingPreviewSource = null;
     card.classList.add("is-previewing");
     clip.hidden = false;
     frame.hidden = false;
@@ -307,12 +330,20 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     });
   }
 
-  function queuePreview(card, project = primeCardResources(card)) {
+  function queuePreview(card, project = primeCardResources(card), source = "focus") {
     if (document.body.classList.contains("viewer-open")) return;
     if (activePreview?.card === card) return;
+    if (
+      pendingPreviewCard === card &&
+      pendingPreviewSource === "touch" &&
+      source === "focus"
+    ) {
+      return;
+    }
     if (!project?.path) return;
 
     pendingPreviewCard = card;
+    pendingPreviewSource = source;
     pressureMonitor.wake();
     window.clearTimeout(pendingPreviewTimer);
     pendingPreviewTimer = window.setTimeout(() => {
@@ -329,6 +360,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     if (card && pendingPreviewCard !== card) return;
 
     pendingPreviewCard = null;
+    pendingPreviewSource = null;
     window.clearTimeout(pendingPreviewTimer);
     pendingPreviewTimer = 0;
     if (!activePreview) pressureMonitor.restSoon();
@@ -375,6 +407,13 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
 
     fadingPreview.card.classList.remove("is-previewing");
     fadingPreview = null;
+  }
+
+  function shouldKeepTouchPreview(card) {
+    return (
+      (pendingPreviewCard === card && pendingPreviewSource === "touch") ||
+      (activePreview?.card === card && activePreview.source === "touch")
+    );
   }
 
   function queuePreviewLayoutUpdate() {

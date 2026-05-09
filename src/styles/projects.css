@@ -38,7 +38,8 @@
 }
 
 .project-card:hover,
-.project-card:focus-within {
+.project-card:focus-within,
+.project-card.is-previewing {
   border-color: var(--line-strong);
 }
 
