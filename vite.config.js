@@ -11,6 +11,7 @@ import { defineConfig } from "vite";
 import { renderProjectCards } from "./src/app/project-template.js";
 
 const rootStaticFiles = ["projects.json", "16k.mp3", "keyboard.svg", "favicon.ico", "CNAME"];
+const criticalHeaderCss = `:root{color-scheme:light;--bg:#fff;--text:#111;--muted:#666;--line:#ddd;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}@media (prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#111;--text:#eee;--muted:#aaa;--line:#333}}html{background:var(--bg)}body{margin:0;background:var(--bg);color:var(--text)}.shell{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:28px 0 36px}.topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding-bottom:20px;border-bottom:1px solid var(--line)}.brand{display:grid;gap:8px}.eyebrow{margin:0;color:var(--muted);font-size:13px;font-weight:600;text-transform:uppercase}h1{max-width:780px;margin:0;font-size:32px;line-height:1.15}@media (max-width:760px){.shell{width:min(100% - 24px,1180px);padding-top:20px}.topbar{display:grid;align-items:start}h1{font-size:28px}}`;
 
 function copyRootStaticFiles() {
   return {
@@ -71,13 +72,27 @@ function inlineCssBundle() {
         const linkPattern = new RegExp(
           `\\n?\\s*<link\\s+[^>]*href="${escapeRegExp(href)}"[^>]*>`,
         );
-        html = html.replace(linkPattern, `\n    <style>${css}</style>`);
+        const criticalCss = criticalHeaderCss.replace(/<\/style/gi, "<\\/style");
+        const fullStyle = `\n    <style>${css}</style>`;
+        html = html.replace(linkPattern, `\n    <style>${criticalCss}</style>`);
+        html = html.replace("</header>", `</header>${fullStyle}`);
         await rm(cssPath, { force: true });
       }
 
+      html = moveInitialModuleScriptToBodyEnd(html);
       await writeFile(htmlPath, html);
     },
   };
+}
+
+function moveInitialModuleScriptToBodyEnd(html) {
+  const scriptPattern = /\n\s*<script\s+type="module"\s+crossorigin\s+src="\/assets\/index-[^"]+\.js"><\/script>/;
+  const match = html.match(scriptPattern);
+  if (!match) return html;
+
+  return html
+    .replace(match[0], "")
+    .replace("\n  </body>", `${match[0]}\n  </body>`);
 }
 
 function escapeRegExp(value) {

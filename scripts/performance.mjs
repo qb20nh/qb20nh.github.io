@@ -20,21 +20,24 @@ const DIRECT_PROJECT = "tttt";
 const CHROME_TIMEOUT_MS = 10_000;
 const INTERACTION_TIMEOUT_MS = 8_000;
 const LCP_SETTLE_MS = 2_500;
+// Chromium DevTools "3G": 400ms target RTT represented as 2000ms CDP latency.
+const DEVTOOLS_3G_NETWORK = {
+  offline: false,
+  latency: 400 * 5,
+  downloadThroughput: (500 * 1000) / 8 * 0.8,
+  uploadThroughput: (500 * 1000) / 8 * 0.8,
+  connectionType: "cellular3g",
+};
 
 const profiles = [
   {
-    name: "mobile",
-    viewport: { width: 390, height: 844, deviceScaleFactor: 3, mobile: true },
-    cpuThrottlingRate: 4,
-    network: {
-      offline: false,
-      latency: 150,
-      downloadThroughput: Math.floor((1.6 * 1024 * 1024) / 8),
-      uploadThroughput: Math.floor((750 * 1024) / 8),
-    },
+    name: "desktop-3g",
+    viewport: { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false },
+    cpuThrottlingRate: 1,
+    network: DEVTOOLS_3G_NETWORK,
     userAgent:
-      "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 " +
-      "(KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36",
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
+      "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
   },
   {
     name: "desktop",
@@ -482,10 +485,32 @@ async function setupPage(connection, sessionId, profile) {
     userAgent: profile.userAgent,
   }, sessionId);
   if (profile.network) {
-    await connection.send("Network.emulateNetworkConditions", profile.network, sessionId);
+    await applyNetworkConditions(connection, sessionId, profile.network);
   }
   await connection.send("Page.addScriptToEvaluateOnNewDocument", {
     source: perfObserverSource(),
+  }, sessionId);
+}
+
+async function applyNetworkConditions(connection, sessionId, network) {
+  await connection.send("Network.emulateNetworkConditionsByRule", {
+    offline: network.offline,
+    matchedNetworkConditions: [
+      {
+        urlPattern: "",
+        latency: network.latency,
+        downloadThroughput: network.downloadThroughput,
+        uploadThroughput: network.uploadThroughput,
+        connectionType: network.connectionType,
+      },
+    ],
+  }, sessionId);
+  await connection.send("Network.overrideNetworkState", {
+    offline: network.offline,
+    latency: network.latency,
+    downloadThroughput: network.downloadThroughput,
+    uploadThroughput: network.uploadThroughput,
+    connectionType: network.connectionType,
   }, sessionId);
 }
 
