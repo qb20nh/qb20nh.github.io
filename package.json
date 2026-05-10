@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
+    "performance": "pnpm build && node scripts/performance.mjs",
     "preview": "vite preview --host 127.0.0.1",
-    "jscpd": "jscpd --config .jscpd.json src index.html vite.config.js"
+    "jscpd": "jscpd --config .jscpd.json src scripts index.html vite.config.js"
   },
   "devDependencies": {
     "jscpd": "^4.0.9",

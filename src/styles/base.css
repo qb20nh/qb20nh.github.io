@@ -21,6 +21,7 @@ body {
 
 body.viewer-scroll-locked {
   overflow: hidden;
+  padding-inline-end: var(--page-scrollbar-gutter, 0px);
 }
 
 button,

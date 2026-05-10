@@ -18,12 +18,26 @@ export function createProjectMap(projects) {
   return new Map(projects.map((project) => [project.id, project]));
 }
 
+export function createProjectCardMap(directory) {
+  return new Map(
+    Array.from(directory.querySelectorAll("[data-open]"), (trigger) => [
+      trigger.dataset.open,
+      trigger.closest(".project-card"),
+    ]).filter(([id, card]) => id && card),
+  );
+}
+
 export function findProjectCard(directory, project) {
   return (
     Array.from(directory.querySelectorAll("[data-open]"))
       .find((trigger) => trigger.dataset.open === project.id)
       ?.closest(".project-card") || null
   );
+}
+
+export function readProjectsFromDirectory(directory) {
+  return Array.from(directory.querySelectorAll("[data-open]"), readProjectFromTrigger)
+    .filter(Boolean);
 }
 
 export function readProjectFromTrigger(trigger) {

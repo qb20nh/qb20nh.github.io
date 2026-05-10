@@ -38,13 +38,14 @@ export function createProjectViewer({
 
   function openProject(project, options = {}) {
     const sourceCard = options.sourceCard || findProjectCard(project);
-    const openViewport = readVisibleViewport();
+    let openViewport = readVisibleViewport();
     const previewTransition = options.skipTransition
       ? null
       : beforeOpenProject(project, sourceCard, openViewport);
     const openWithoutTransition = options.skipTransition || !sourceCard;
 
     if (openWithoutTransition) {
+      openViewport = lockPageScroll();
       syncViewerSize(openViewport);
       document.body.classList.add("viewer-open");
       placeBackControl();
@@ -52,7 +53,6 @@ export function createProjectViewer({
       mountFrameInViewer();
       replaceFrameLocation(frame, project.path);
       applyOpenProject(project, { ...options, skipFrameNavigation: true });
-      lockPageScroll(openViewport);
       return;
     }
 
@@ -80,7 +80,6 @@ export function createProjectViewer({
             previewTransition?.mountLoadedFrame?.(openViewport),
         );
 
-        lockPageScroll(openViewport);
         if (!keepsLoadedPreviewFrame) mountFrameInViewer();
         if (!hasLoadedPreviewFrame) {
           revealRequest = holdFrameUntilReady();
@@ -99,6 +98,7 @@ export function createProjectViewer({
       {
         direction: "open",
         beforeStart() {
+          openViewport = lockPageScroll();
           previewTransition?.activate?.();
           emptyFrameTransition?.activate();
         },
@@ -219,7 +219,6 @@ export function createProjectViewer({
     const project = activeProject;
     const targetCard = project ? findProjectCard(project) : null;
 
-    restorePageGutter();
     const closeFrameTransition = prepareCloseFrameTransition(targetCard, frame);
 
     runProjectViewTransition(
@@ -271,20 +270,24 @@ export function createProjectViewer({
     frame.removeAttribute("tabindex");
   }
 
-  function lockPageScroll(viewport) {
+  function lockPageScroll() {
+    const scrollbarGutter = readScrollbarGutter();
+    document.body.style.setProperty(
+      "--page-scrollbar-gutter",
+      `${scrollbarGutter}px`,
+    );
     document.documentElement.classList.add("viewer-scroll-locked");
     document.body.classList.add("viewer-scroll-locked");
+    const viewport = readViewerViewport();
     syncViewerSize(viewport);
     placeBackControl();
+    return viewport;
   }
 
   function unlockPageScroll() {
-    document.body.classList.remove("viewer-scroll-locked");
-    restorePageGutter();
-  }
-
-  function restorePageGutter() {
     document.documentElement.classList.remove("viewer-scroll-locked");
+    document.body.classList.remove("viewer-scroll-locked");
+    document.body.style.removeProperty("--page-scrollbar-gutter");
   }
 
   function queueViewerSizeSync() {
@@ -298,7 +301,15 @@ export function createProjectViewer({
     });
   }
 
-  function syncViewerSize(viewport = readVisibleViewport()) {
+  function readViewerViewport() {
+    return readVisibleViewport({
+      includeScrollbarGutter: document.documentElement.classList.contains(
+        "viewer-scroll-locked",
+      ),
+    });
+  }
+
+  function syncViewerSize(viewport = readViewerViewport()) {
     viewer.style.setProperty("--viewer-left", `${viewport.left}px`);
     viewer.style.setProperty("--viewer-top", `${viewport.top}px`);
     viewer.style.setProperty("--viewer-width", `${viewport.width}px`);
@@ -458,6 +469,10 @@ function replaceFrameLocation(frame, url) {
   frame.src = new URL(url, location.href).href;
 }
 
+function readScrollbarGutter() {
+  return Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+}
+
 function createTransitionTarget(viewer, className) {
   const target = document.createElement("div");
   target.className = className;
@@ -470,25 +485,20 @@ function waitForFrameDomReady(frame, url, revealRequest) {
   const expected = new URL(url, location.href);
 
   return new Promise((resolve) => {
-    let frameRequest = 0;
     const timeout = window.setTimeout(resolveReady, FRAME_DOM_READY_TIMEOUT_MS);
 
+    frame.addEventListener("load", checkReady);
     checkReady();
 
     function checkReady() {
       if (isFrameDomReady(frame, expected)) {
         resolveReady();
-        return;
       }
-
-      frameRequest = window.requestAnimationFrame(checkReady);
     }
 
     function resolveReady() {
       window.clearTimeout(timeout);
-      if (frameRequest) {
-        window.cancelAnimationFrame(frameRequest);
-      }
+      frame.removeEventListener("load", checkReady);
 
       resolve(revealRequest);
     }

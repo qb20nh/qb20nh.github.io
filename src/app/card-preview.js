@@ -10,7 +10,6 @@ const PREVIEW_LONG_FRAME_MS = 80;
 const PREVIEW_MEMORY_PRESSURE_BYTES = 24 * 1024 * 1024;
 const PREVIEW_HIGH_MEMORY_RATIO = 0.7;
 const PREVIEW_MONITOR_IDLE_MS = 2000;
-
 export function setupCardPreview(directory, previewFrame, getProjectForCard) {
   let activePreview = null;
   let pendingPreviewCard = null;
@@ -46,7 +45,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     if (!card || containsRelatedTarget(card, event.relatedTarget)) return;
 
     queuePreview(card, primeCardResources(card), "pointer");
-  });
+  }, { passive: true });
 
   directory.addEventListener("pointerdown", (event) => {
     suppressFocusPreview = false;
@@ -58,7 +57,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
 
     card.focus({ preventScroll: true });
     queuePreview(card, project, "touch");
-  });
+  }, { passive: true });
 
   document.addEventListener(
     "pointerdown",
@@ -69,7 +68,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
       if (pendingPreviewSource === "touch") cancelPendingPreview();
       if (activePreview?.source === "touch") stopActivePreview({ fade: true });
     },
-    true,
+    { capture: true, passive: true },
   );
 
   directory.addEventListener("pointerout", (event) => {
@@ -80,7 +79,7 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
 
     cancelPendingPreview(card);
     stopPreview(card);
-  });
+  }, { passive: true });
 
   directory.addEventListener("focusin", (event) => {
     if (suppressFocusPreview) return;
@@ -473,7 +472,11 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
     resourceHints.add(key);
   }
 
-  return { prepareOpenTransition, stopAll };
+  function previewCard(card, source = "focus") {
+    queuePreview(card, primeCardResources(card), source);
+  }
+
+  return { prepareOpenTransition, previewCard, stopAll };
 }
 
 function createPreviewPressureMonitor() {
@@ -724,8 +727,8 @@ function applyHostedFrameLayout(
   frame,
   viewport = readVisibleViewport(),
 ) {
-  const viewportWidth = frame.style.width || `${viewport.width}px`;
-  const viewportHeight = frame.style.height || `${viewport.height}px`;
+  const viewportWidth = `${viewport.width}px`;
+  const viewportHeight = `${viewport.height}px`;
 
   Object.assign(clip.style, {
     position: "fixed",

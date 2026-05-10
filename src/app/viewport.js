@@ -1,8 +1,10 @@
-export function readVisibleViewport() {
+export function readVisibleViewport({ includeScrollbarGutter = false } = {}) {
   const viewport = window.visualViewport;
-  const width = viewport?.width || window.innerWidth;
+  const width = includeScrollbarGutter
+    ? window.innerWidth
+    : viewport?.width || window.innerWidth;
   const height = viewport?.height || window.innerHeight;
-  const left = viewport?.offsetLeft || 0;
+  const left = includeScrollbarGutter ? 0 : viewport?.offsetLeft || 0;
   const top = viewport?.offsetTop || 0;
 
   return {
