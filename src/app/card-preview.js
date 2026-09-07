@@ -266,6 +266,10 @@ export function setupCardPreview(directory, previewFrame, getProjectForCard) {
   function stopActivePreview({ fade }) {
     const preview = activePreview;
 
+    // Opening hands this shared iframe to the viewer. It can remain inside the
+    // preview clip after activePreview is cleared; only the viewer may release it.
+    if (preview?.isOpening || previewFrame.closest(".is-frame-host")) return;
+
     if (preview) {
       preview.card.classList.remove("is-preview-loaded");
       activePreview = null;
